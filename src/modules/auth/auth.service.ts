@@ -4,9 +4,6 @@ import { generateToken } from '../../utils/jwt';
 import { LoginInput, VerifyOtpInput } from './auth.validation';
 import { AppError } from '../../middlewares/error.middleware';
 
-// Mock OTP storage - in production, use Redis or database
-const otpStore = new Map<string, { otp: string; expiresAt: Date }>();
-
 export class AuthService {
   /**
    * Send OTP to user's phone
@@ -39,8 +36,19 @@ export class AuthService {
     const otp = Math.floor(100000 + Math.random() * 900000).toString();
     const expiresAt = new Date(Date.now() + 5 * 60 * 1000); // 5 minutes
 
-    // Store OTP (in production, use Redis)
-    otpStore.set(data.phone, { otp, expiresAt });
+    // Store OTP in database
+    await prisma.otp.upsert({
+      where: { phone: data.phone },
+      update: {
+        code: otp,
+        expiresAt,
+      },
+      create: {
+        phone: data.phone,
+        code: otp,
+        expiresAt,
+      },
+    });
 
     logger.info({ phone: data.phone, otp }, 'OTP generated (development only)');
 
@@ -60,26 +68,31 @@ export class AuthService {
   async verifyOtp(data: VerifyOtpInput) {
     logger.info({ phone: data.phone }, 'OTP verification request');
 
-    // Get stored OTP
-    const stored = otpStore.get(data.phone);
+    // Get stored OTP from database
+    const storedOtp = await prisma.otp.findUnique({
+      where: { phone: data.phone },
+    });
 
-    if (!stored) {
-      throw new AppError(400, 'OTP not found or expired. Please request a new one.');
+    if (!storedOtp) {
+      throw new AppError(
+        400,
+        "OTP not found or expired. Please request a new one.",
+      );
     }
 
     // Check expiry
-    if (new Date() > stored.expiresAt) {
-      otpStore.delete(data.phone);
-      throw new AppError(400, 'OTP expired. Please request a new one.');
+    if (new Date() > storedOtp.expiresAt) {
+      await prisma.otp.delete({ where: { phone: data.phone } });
+      throw new AppError(400, "OTP expired. Please request a new one.");
     }
 
     // Verify OTP
-    if (stored.otp !== data.otp) {
-      throw new AppError(400, 'Invalid OTP');
+    if (storedOtp.code !== data.otp) {
+      throw new AppError(400, "Invalid OTP");
     }
 
-    // Clear OTP
-    otpStore.delete(data.phone);
+    // Clear OTP after successful verification
+    await prisma.otp.delete({ where: { phone: data.phone } });
 
     // Get user
     const user = await prisma.user.findUnique({
