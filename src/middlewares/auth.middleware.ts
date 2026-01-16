@@ -1,10 +1,11 @@
 import { Request, Response, NextFunction } from 'express';
 import { ResponseHandler } from '../utils/response';
 import { AppError } from './error.middleware';
+import { verifyToken } from '../utils/jwt';
 
-// Mock auth middleware - replace with actual JWT verification
 export interface AuthRequest extends Request {
   userId?: string;
+  userPhone?: string;
 }
 
 export const authenticate = async (
@@ -21,19 +22,23 @@ export const authenticate = async (
 
     const token = authHeader.substring(7);
 
-    // TODO: Implement actual JWT verification
-    // For now, we'll use a simple mock implementation
     if (!token) {
       throw new AppError(401, 'Invalid token');
     }
 
-    // Mock: Extract userId from token
-    // In production, verify JWT and extract userId
-    req.userId = token; // Replace with actual decoded userId
+    // Verify JWT and extract userId
+    const decoded = verifyToken(token);
+    
+    req.userId = decoded.userId;
+    req.userPhone = decoded.phone;
 
     next();
   } catch (error) {
     if (error instanceof AppError) {
+      ResponseHandler.unauthorized(res, error.message);
+      return;
+    }
+    if (error instanceof Error) {
       ResponseHandler.unauthorized(res, error.message);
       return;
     }
@@ -51,12 +56,15 @@ export const optionalAuth = async (
 
     if (authHeader && authHeader.startsWith('Bearer ')) {
       const token = authHeader.substring(7);
-      // Mock: Extract userId from token
-      req.userId = token; // Replace with actual decoded userId
+      // Verify JWT and extract userId if token is present
+      const decoded = verifyToken(token);
+      req.userId = decoded.userId;
+      req.userPhone = decoded.phone;
     }
 
     next();
   } catch (error) {
+    // Optional auth - continue without userId if token is invalid
     next();
   }
 };

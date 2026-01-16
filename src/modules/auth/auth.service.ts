@@ -1,5 +1,6 @@
 import { prisma } from '../../config/prisma';
 import { logger } from '../../utils/logger';
+import { generateToken } from '../../utils/jwt';
 import { LoginInput, VerifyOtpInput } from './auth.validation';
 import { AppError } from '../../middlewares/error.middleware';
 
@@ -97,8 +98,8 @@ export class AuthService {
       throw new AppError(404, 'User not found');
     }
 
-    // TODO: Generate actual JWT token
-    const token = user.id; // Replace with actual JWT
+    // Generate JWT token
+    const token = generateToken(user.id, user.phone);
 
     logger.info({ userId: user.id }, 'User authenticated successfully');
 
