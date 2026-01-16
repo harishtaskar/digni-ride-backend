@@ -119,7 +119,8 @@ export class FeedbackService {
     // Calculate average rating
     const avgRating =
       feedback.length > 0
-        ? feedback.reduce((sum, f) => sum + f.rating, 0) / feedback.length
+        ? feedback.reduce((sum: number, f: any) => sum + f.rating, 0) /
+          feedback.length
         : 0;
 
     return {
@@ -128,11 +129,11 @@ export class FeedbackService {
         totalFeedbacks: feedback.length,
         averageRating: Number(avgRating.toFixed(2)),
         ratingDistribution: {
-          5: feedback.filter((f) => f.rating === 5).length,
-          4: feedback.filter((f) => f.rating === 4).length,
-          3: feedback.filter((f) => f.rating === 3).length,
-          2: feedback.filter((f) => f.rating === 2).length,
-          1: feedback.filter((f) => f.rating === 1).length,
+          5: feedback.filter((f: any) => f.rating === 5).length,
+          4: feedback.filter((f: any) => f.rating === 4).length,
+          3: feedback.filter((f: any) => f.rating === 3).length,
+          2: feedback.filter((f: any) => f.rating === 2).length,
+          1: feedback.filter((f: any) => f.rating === 1).length,
         },
       },
     };

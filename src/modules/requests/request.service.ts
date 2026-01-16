@@ -136,7 +136,7 @@ export class RequestService {
     }
 
     // Transactional operation
-    const result = await prisma.$transaction(async (tx) => {
+    const result = await prisma.$transaction(async (tx: any) => {
       // Accept the request
       const acceptedRequest = await tx.rideRequest.update({
         where: { id: requestId },
