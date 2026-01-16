@@ -52,13 +52,10 @@ export class AuthService {
 
     logger.info({ phone: data.phone, otp }, 'OTP generated (development only)');
 
-    // TODO: Send OTP via SMS service (Twilio, SNS, etc.)
-
     return {
-      message: 'OTP sent successfully',
+      message: "OTP sent successfully",
       userId: user.id,
-      // Only return OTP in development
-      ...(process.env.NODE_ENV === 'development' && { otp }),
+      otp,
     };
   }
 
