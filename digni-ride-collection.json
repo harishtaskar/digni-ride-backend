@@ -1,0 +1,575 @@
+{
+  "info": {
+    "_postman_id": "3a3b82df-038f-4060-8e53-ebe13bb46850",
+    "name": "Digni Ride API",
+    "description": "Digni Ride - Motorcycle Ride Sharing Application\n\nComplete API collection with 24 endpoints across 5 modules:\n- Authentication (3 endpoints)\n- Users (4 endpoints)\n- Rides (7 endpoints)\n- Requests (6 endpoints)\n- Feedback (4 endpoints)",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "Authentication",
+      "item": [
+        {
+          "name": "1. Login / Send OTP",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"phone\": \"9876543210\",\n  \"name\": \"John Doe\",\n  \"city\": \"Bangalore\"\n}"
+            },
+            "url": {
+              "raw": "http://localhost:3000/api/v1/auth/login",
+              "protocol": "http",
+              "host": ["localhost"],
+              "port": "3000",
+              "path": ["api", "v1", "auth", "login"]
+            },
+            "description": "Send phone number to receive OTP via SMS"
+          },
+          "response": []
+        },
+        {
+          "name": "2. Verify OTP",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"phone\": \"9876543210\",\n  \"otp\": \"123456\"\n}"
+            },
+            "url": {
+              "raw": "http://localhost:3000/api/v1/auth/verify-otp",
+              "protocol": "http",
+              "host": ["localhost"],
+              "port": "3000",
+              "path": ["api", "v1", "auth", "verify-otp"]
+            },
+            "description": "Verify OTP and get JWT token"
+          },
+          "response": []
+        },
+        {
+          "name": "3. Logout",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "http://localhost:3000/api/v1/auth/logout",
+              "protocol": "http",
+              "host": ["localhost"],
+              "port": "3000",
+              "path": ["api", "v1", "auth", "logout"]
+            },
+            "description": "Logout user"
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Users",
+      "item": [
+        {
+          "name": "4. Get My Profile",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "http://localhost:3000/api/v1/users/me",
+              "protocol": "http",
+              "host": ["localhost"],
+              "port": "3000",
+              "path": ["api", "v1", "users", "me"]
+            },
+            "description": "Get current user profile"
+          },
+          "response": []
+        },
+        {
+          "name": "5. Update Profile",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"John Smith\",\n  \"city\": \"Mumbai\",\n  \"vehicleNumber\": \"MH02CD5678\"\n}"
+            },
+            "url": {
+              "raw": "http://localhost:3000/api/v1/users/me",
+              "protocol": "http",
+              "host": ["localhost"],
+              "port": "3000",
+              "path": ["api", "v1", "users", "me"]
+            },
+            "description": "Update user profile information"
+          },
+          "response": []
+        },
+        {
+          "name": "6. Get User Stats",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "http://localhost:3000/api/v1/users/me/stats",
+              "protocol": "http",
+              "host": ["localhost"],
+              "port": "3000",
+              "path": ["api", "v1", "users", "me", "stats"]
+            },
+            "description": "Get user statistics (rides created/joined, ratings)"
+          },
+          "response": []
+        },
+        {
+          "name": "7. Get User by ID",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "http://localhost:3000/api/v1/users/:id",
+              "protocol": "http",
+              "host": ["localhost"],
+              "port": "3000",
+              "path": ["api", "v1", "users", ":id"]
+            },
+            "description": "Get user profile by ID"
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Rides",
+      "item": [
+        {
+          "name": "8. Create Ride",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"startLocation\": {\n    \"lat\": 12.9716,\n    \"lng\": 77.5946,\n    \"address\": \"MG Road, Bangalore\"\n  },\n  \"endLocation\": {\n    \"lat\": 13.0827,\n    \"lng\": 80.2707,\n    \"address\": \"Marina Beach, Chennai\"\n  },\n  \"departureTime\": \"2026-01-20T09:00:00Z\",\n  \"note\": \"Highway ride\"\n}"
+            },
+            "url": {
+              "raw": "http://localhost:3000/api/v1/rides",
+              "protocol": "http",
+              "host": ["localhost"],
+              "port": "3000",
+              "path": ["api", "v1", "rides"]
+            },
+            "description": "Create a new ride"
+          },
+          "response": []
+        },
+        {
+          "name": "9. Get Rides (Browse)",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "http://localhost:3000/api/v1/rides?city=Bangalore&status=OPEN&limit=20&offset=0",
+              "protocol": "http",
+              "host": ["localhost"],
+              "port": "3000",
+              "path": ["api", "v1", "rides"],
+              "query": [
+                {
+                  "key": "city",
+                  "value": "Bangalore"
+                },
+                {
+                  "key": "status",
+                  "value": "OPEN"
+                },
+                {
+                  "key": "limit",
+                  "value": "20"
+                },
+                {
+                  "key": "offset",
+                  "value": "0"
+                }
+              ]
+            },
+            "description": "Browse available rides with filters"
+          },
+          "response": []
+        },
+        {
+          "name": "10. Get Ride by ID",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "http://localhost:3000/api/v1/rides/:id",
+              "protocol": "http",
+              "host": ["localhost"],
+              "port": "3000",
+              "path": ["api", "v1", "rides", ":id"]
+            },
+            "description": "Get ride details by ID"
+          },
+          "response": []
+        },
+        {
+          "name": "11. Complete Ride",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "http://localhost:3000/api/v1/rides/:id/complete",
+              "protocol": "http",
+              "host": ["localhost"],
+              "port": "3000",
+              "path": ["api", "v1", "rides", ":id", "complete"]
+            },
+            "description": "Mark ride as completed"
+          },
+          "response": []
+        },
+        {
+          "name": "12. Cancel Ride",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "http://localhost:3000/api/v1/rides/:id",
+              "protocol": "http",
+              "host": ["localhost"],
+              "port": "3000",
+              "path": ["api", "v1", "rides", ":id"]
+            },
+            "description": "Cancel a ride"
+          },
+          "response": []
+        },
+        {
+          "name": "13. Get My Created Rides",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "http://localhost:3000/api/v1/rides/me/created",
+              "protocol": "http",
+              "host": ["localhost"],
+              "port": "3000",
+              "path": ["api", "v1", "rides", "me", "created"]
+            },
+            "description": "Get all rides created by current user"
+          },
+          "response": []
+        },
+        {
+          "name": "14. Get My Joined Rides",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "http://localhost:3000/api/v1/rides/me/joined",
+              "protocol": "http",
+              "host": ["localhost"],
+              "port": "3000",
+              "path": ["api", "v1", "rides", "me", "joined"]
+            },
+            "description": "Get all rides joined by current user"
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Requests",
+      "item": [
+        {
+          "name": "15. Request to Join Ride",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"note\": \"I'm heading the same way\"\n}"
+            },
+            "url": {
+              "raw": "http://localhost:3000/api/v1/rides/:rideId/request",
+              "protocol": "http",
+              "host": ["localhost"],
+              "port": "3000",
+              "path": ["api", "v1", "rides", ":rideId", "request"]
+            },
+            "description": "Request to join a ride"
+          },
+          "response": []
+        },
+        {
+          "name": "16. Get Ride Requests",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "http://localhost:3000/api/v1/rides/:rideId/requests",
+              "protocol": "http",
+              "host": ["localhost"],
+              "port": "3000",
+              "path": ["api", "v1", "rides", ":rideId", "requests"]
+            },
+            "description": "Get all requests for a ride"
+          },
+          "response": []
+        },
+        {
+          "name": "17. Accept Request",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "http://localhost:3000/api/v1/requests/:requestId/accept",
+              "protocol": "http",
+              "host": ["localhost"],
+              "port": "3000",
+              "path": ["api", "v1", "requests", ":requestId", "accept"]
+            },
+            "description": "Accept a ride request"
+          },
+          "response": []
+        },
+        {
+          "name": "18. Reject Request",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "http://localhost:3000/api/v1/requests/:requestId/reject",
+              "protocol": "http",
+              "host": ["localhost"],
+              "port": "3000",
+              "path": ["api", "v1", "requests", ":requestId", "reject"]
+            },
+            "description": "Reject a ride request"
+          },
+          "response": []
+        },
+        {
+          "name": "19. Get My Requests",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "http://localhost:3000/api/v1/requests/me",
+              "protocol": "http",
+              "host": ["localhost"],
+              "port": "3000",
+              "path": ["api", "v1", "requests", "me"]
+            },
+            "description": "Get all requests sent by current user"
+          },
+          "response": []
+        },
+        {
+          "name": "20. Cancel Request",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "http://localhost:3000/api/v1/requests/:requestId",
+              "protocol": "http",
+              "host": ["localhost"],
+              "port": "3000",
+              "path": ["api", "v1", "requests", ":requestId"]
+            },
+            "description": "Cancel a ride request"
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Feedback",
+      "item": [
+        {
+          "name": "21. Submit Feedback",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"rideId\": \"ride-uuid\",\n  \"toUserId\": \"user-uuid\",\n  \"rating\": 5,\n  \"comment\": \"Great ride!\"\n}"
+            },
+            "url": {
+              "raw": "http://localhost:3000/api/v1/feedback",
+              "protocol": "http",
+              "host": ["localhost"],
+              "port": "3000",
+              "path": ["api", "v1", "feedback"]
+            },
+            "description": "Submit feedback for a completed ride"
+          },
+          "response": []
+        },
+        {
+          "name": "22. Get My Feedback",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "http://localhost:3000/api/v1/feedback/me",
+              "protocol": "http",
+              "host": ["localhost"],
+              "port": "3000",
+              "path": ["api", "v1", "feedback", "me"]
+            },
+            "description": "Get all feedback received by current user"
+          },
+          "response": []
+        },
+        {
+          "name": "23. Get User Feedback",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "http://localhost:3000/api/v1/feedback/user/:userId",
+              "protocol": "http",
+              "host": ["localhost"],
+              "port": "3000",
+              "path": ["api", "v1", "feedback", "user", ":userId"]
+            },
+            "description": "Get feedback for a specific user"
+          },
+          "response": []
+        },
+        {
+          "name": "24. Get Ride Feedback",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "http://localhost:3000/api/v1/feedback/ride/:rideId",
+              "protocol": "http",
+              "host": ["localhost"],
+              "port": "3000",
+              "path": ["api", "v1", "feedback", "ride", ":rideId"]
+            },
+            "description": "Get all feedback for a specific ride"
+          },
+          "response": []
+        }
+      ]
+    }
+  ],
+  "variable": [
+    {
+      "key": "token",
+      "value": "",
+      "type": "string",
+      "description": "JWT Token - Set this after login"
+    }
+  ]
+}

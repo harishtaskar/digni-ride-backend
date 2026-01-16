@@ -1,11 +1,13 @@
 import { PrismaClient } from '@prisma/client';
 import { logger } from '../utils/logger';
+import { config } from './env';
 
 const globalForPrisma = global as unknown as { prisma: PrismaClient };
 
 export const prisma =
   globalForPrisma.prisma ||
   new PrismaClient({
+    datasourceUrl: config.db.url,
     log: [
       { level: 'query', emit: 'event' },
       { level: 'error', emit: 'stdout' },
