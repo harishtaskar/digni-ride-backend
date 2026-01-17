@@ -1,8 +1,8 @@
-import { Request, Response, NextFunction } from 'express';
-import { RideService } from './ride.service';
-import { createRideSchema, getRidesQuerySchema } from './ride.validation';
-import { ResponseHandler } from '../../utils/response';
-import { AuthRequest } from '../../middlewares/auth.middleware';
+import { Response, NextFunction } from "express";
+import { RideService } from "./ride.service";
+import { createRideSchema, getRidesQuerySchema } from "./ride.validation";
+import { ResponseHandler } from "../../utils/response";
+import { AuthRequest } from "../../middlewares/auth.middleware";
 import {
   emitRideCreated,
   emitRideCancelled,
@@ -16,7 +16,11 @@ export class RideController {
    * POST /api/v1/rides
    * Create a new ride
    */
-  async createRide(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
+  async createRide(
+    req: AuthRequest,
+    res: Response,
+    next: NextFunction,
+  ): Promise<void> {
     try {
       if (!req.userId) {
         ResponseHandler.unauthorized(res);
@@ -51,7 +55,11 @@ export class RideController {
    * GET /api/v1/rides
    * Get rides with filters
    */
-  async getRides(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
+  async getRides(
+    req: AuthRequest,
+    res: Response,
+    next: NextFunction,
+  ): Promise<void> {
     try {
       const query = getRidesQuerySchema.parse(req.query);
       const result = await rideService.getRides(query, req.userId);
@@ -65,10 +73,14 @@ export class RideController {
    * GET /api/v1/rides/:id
    * Get ride by ID
    */
-  async getRideById(req: Request, res: Response, next: NextFunction): Promise<void> {
+  async getRideById(
+    req: AuthRequest,
+    res: Response,
+    next: NextFunction,
+  ): Promise<void> {
     try {
       const { id } = req.params as { id: string };
-      const ride = await rideService.getRideById(id);
+      const ride = await rideService.getRideById(id, req.userId);
       ResponseHandler.success(res, ride);
     } catch (error) {
       next(error);
@@ -79,7 +91,11 @@ export class RideController {
    * POST /api/v1/rides/:id/complete
    * Complete a ride
    */
-  async completeRide(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
+  async completeRide(
+    req: AuthRequest,
+    res: Response,
+    next: NextFunction,
+  ): Promise<void> {
     try {
       if (!req.userId) {
         ResponseHandler.unauthorized(res);
@@ -101,7 +117,11 @@ export class RideController {
    * DELETE /api/v1/rides/:id
    * Cancel a ride
    */
-  async cancelRide(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
+  async cancelRide(
+    req: AuthRequest,
+    res: Response,
+    next: NextFunction,
+  ): Promise<void> {
     try {
       if (!req.userId) {
         ResponseHandler.unauthorized(res);
@@ -123,13 +143,17 @@ export class RideController {
    * GET /api/v1/rides/me/created
    * Get user's created rides
    */
-  async getMyCreatedRides(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
+  async getMyCreatedRides(
+    req: AuthRequest,
+    res: Response,
+    next: NextFunction,
+  ): Promise<void> {
     try {
       if (!req.userId) {
         ResponseHandler.unauthorized(res);
         return;
       }
-      const rides = await rideService.getUserRides(req.userId, 'created');
+      const rides = await rideService.getUserRides(req.userId, "created");
       ResponseHandler.success(res, rides);
     } catch (error) {
       next(error);
@@ -140,13 +164,17 @@ export class RideController {
    * GET /api/v1/rides/me/joined
    * Get user's joined rides
    */
-  async getMyJoinedRides(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
+  async getMyJoinedRides(
+    req: AuthRequest,
+    res: Response,
+    next: NextFunction,
+  ): Promise<void> {
     try {
       if (!req.userId) {
         ResponseHandler.unauthorized(res);
         return;
       }
-      const rides = await rideService.getUserRides(req.userId, 'joined');
+      const rides = await rideService.getUserRides(req.userId, "joined");
       ResponseHandler.success(res, rides);
     } catch (error) {
       next(error);
