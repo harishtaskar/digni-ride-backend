@@ -58,6 +58,8 @@ export class RideService {
     // Build conditional SQL fragments
     let orderClause = Prisma.sql`r."createdAt" DESC`;
     let distanceSelect = Prisma.empty;
+    let searchCondition = Prisma.empty;
+
     if (query.lat !== undefined && query.lng !== undefined) {
       distanceSelect = Prisma.sql`,
         ST_Distance(
@@ -67,6 +69,19 @@ export class RideService {
           ), 4326)::geography,
           ST_SetSRID(ST_MakePoint(${query.lng}, ${query.lat}), 4326)::geography
         ) as distance`;
+
+      if (query.isSearching) {
+        searchCondition = Prisma.sql`
+          AND ST_DWithin(
+            ST_SetSRID(ST_MakePoint(
+              CAST(r."startLocation"->>'lng' AS FLOAT), 
+              CAST(r."startLocation"->>'lat' AS FLOAT)
+            ), 4326)::geography,
+            ST_SetSRID(ST_MakePoint(${query.lng}, ${query.lat}), 4326)::geography,
+            10000
+          )
+        `;
+      }
 
       orderClause = Prisma.sql`${
         userId ? Prisma.sql`(rr.id IS NOT NULL) DESC,` : Prisma.empty
@@ -88,6 +103,11 @@ export class RideService {
       riderCondition = Prisma.sql`AND r."riderId" != ${userId}`;
     }
 
+    let excludeRequestedCondition = Prisma.empty;
+    if (userId && query.isSearching) {
+      excludeRequestedCondition = Prisma.sql`AND rr.id IS NULL`;
+    }
+
     // Execute raw query for sorted IDs and total count
     const [idResults, countResults] = await Promise.all([
       prisma.$queryRaw<{ id: string }[]>`
@@ -101,17 +121,27 @@ export class RideService {
         WHERE r.status = ${status}::"RideStatus"
         ${departureCondition}
         ${riderCondition}
+        ${searchCondition}
+        ${excludeRequestedCondition}
         ORDER BY ${orderClause}
         LIMIT ${limit} OFFSET ${offset}
       `,
       prisma.$queryRaw<{ count: bigint }[]>`
         SELECT COUNT(*) as count
         FROM "Ride" r
+        ${
+          userId
+            ? Prisma.sql`LEFT JOIN "RideRequest" rr ON rr."rideId" = r.id AND rr."passengerId" = ${userId}`
+            : Prisma.empty
+        }
         WHERE r.status = ${status}::"RideStatus"
         ${departureCondition}
         ${riderCondition}
+        ${searchCondition}
+        ${excludeRequestedCondition}
       `,
     ]);
+
 
     const rideIds = idResults.map((r) => r.id);
     const total = Number(countResults[0].count);

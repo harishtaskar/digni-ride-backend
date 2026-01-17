@@ -21,8 +21,13 @@ export const getRidesQuerySchema = z.object({
   status: z.enum(["OPEN", "MATCHED", "COMPLETED"]).optional(),
   departureFrom: z.string().datetime().optional(),
   departureTo: z.string().datetime().optional(),
+  isSearching: z
+    .string()
+    .transform((val) => val === "true")
+    .optional(),
   limit: z
     .string()
+
     .transform(Number)
     .pipe(z.number().min(1).max(100))
     .optional(),
