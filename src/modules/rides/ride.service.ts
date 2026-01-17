@@ -55,11 +55,27 @@ export class RideService {
       status: query.status || RideStatus.OPEN,
     };
 
-    // Filter by city (from rider's city)
-    if (query.city) {
-      where.rider = {
-        city: query.city,
-      };
+    // Filter by location (Geospatial)
+    if (query.lat !== undefined && query.lng !== undefined) {
+      // Find rides starting within 2000 meters (2km)
+      // Extract lat/lng from startLocation JSON field
+      const result = await prisma.$queryRaw<{ id: string }[]>`
+        SELECT id
+        FROM "Ride"
+        WHERE ST_DWithin(
+          ST_SetSRID(ST_MakePoint(
+            CAST("startLocation"->>'lng' AS FLOAT), 
+            CAST("startLocation"->>'lat' AS FLOAT)
+          ), 4326)::geography,
+          ST_SetSRID(ST_MakePoint(${query.lng}, ${query.lat}), 4326)::geography,
+          2000
+        )
+      `;
+      
+      const rideIds = result.map((r) => r.id);
+      
+      // If filtering by location, only include rides in range
+      where.id = { in: rideIds };
     }
 
     // Filter by departure time range

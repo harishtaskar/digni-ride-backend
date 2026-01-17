@@ -16,11 +16,16 @@ export const createRideSchema = z.object({
 });
 
 export const getRidesQuerySchema = z.object({
-  city: z.string().optional(),
-  status: z.enum(['OPEN', 'MATCHED', 'COMPLETED']).optional(),
+  lat: z.string().transform(Number).optional(),
+  lng: z.string().transform(Number).optional(),
+  status: z.enum(["OPEN", "MATCHED", "COMPLETED"]).optional(),
   departureFrom: z.string().datetime().optional(),
   departureTo: z.string().datetime().optional(),
-  limit: z.string().transform(Number).pipe(z.number().min(1).max(100)).optional(),
+  limit: z
+    .string()
+    .transform(Number)
+    .pipe(z.number().min(1).max(100))
+    .optional(),
   offset: z.string().transform(Number).pipe(z.number().min(0)).optional(),
 });
 
