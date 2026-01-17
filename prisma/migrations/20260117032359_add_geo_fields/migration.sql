@@ -1,0 +1,6 @@
+-- Enable PostGIS
+CREATE EXTENSION IF NOT EXISTS postgis;
+
+-- AlterTable
+ALTER TABLE "Ride" ADD COLUMN     "startLat" DOUBLE PRECISION,
+ADD COLUMN     "startLng" DOUBLE PRECISION;
