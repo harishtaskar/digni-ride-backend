@@ -1,7 +1,7 @@
 import jwt, { JwtPayload } from 'jsonwebtoken';
 import { config } from '../config/env';
 import { logger } from './logger';
-import { prisma } from '../config/prisma';
+import { prisma } from "../config/prisma";
 
 export interface TokenPayload extends JwtPayload {
   userId: string;
