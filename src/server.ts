@@ -4,6 +4,11 @@ import { config } from "./config/env";
 import { prisma, disconnectPrisma } from "./config/prisma";
 import { initializeSocket } from "./config/socket";
 import { logger } from "./utils/logger";
+import {
+  startRideCompletionCron,
+  stopRideCompletionCron,
+} from "./cron/ride-completion.cron";
+import type { ScheduledTask } from "node-cron";
 
 // Test database connection
 const connectDatabase = async () => {
@@ -26,6 +31,10 @@ const startServer = async () => {
   // Initialize Socket.IO
   initializeSocket(httpServer);
 
+  // Start cron jobs
+  let rideCompletionCronTask: ScheduledTask;
+  rideCompletionCronTask = startRideCompletionCron();
+
   const server = httpServer.listen(config.app.port, () => {
     logger.info(
       {
@@ -43,6 +52,9 @@ const startServer = async () => {
   const gracefulShutdown = async (signal: string) => {
     logger.info(`${signal} received, shutting down gracefully...`);
 
+    // Stop cron jobs
+    stopRideCompletionCron(rideCompletionCronTask);
+
     server.close(async () => {
       logger.info("HTTP server closed");
 
@@ -57,7 +69,7 @@ const startServer = async () => {
       logger.error("Forced shutdown after timeout");
       process.exit(1);
     }, 10000);
-  };
+  };;
 
   // Handle shutdown signals
   process.on("SIGTERM", () => gracefulShutdown("SIGTERM"));
@@ -72,7 +84,7 @@ const startServer = async () => {
     logger.error({ error }, "Uncaught Exception");
     process.exit(1);
   });
-};
+};;
 
 // Start the server
 startServer().catch((error) => {
