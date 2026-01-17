@@ -1,7 +1,7 @@
 import { Request, Response, NextFunction } from 'express';
 import { ResponseHandler } from '../utils/response';
 import { AppError } from './error.middleware';
-import { verifyToken } from '../utils/jwt';
+import { verifyToken, isTokenBlacklisted } from '../utils/jwt';
 
 export interface AuthRequest extends Request {
   userId?: string;
@@ -24,6 +24,12 @@ export const authenticate = async (
 
     if (!token) {
       throw new AppError(401, 'Invalid token');
+    }
+
+    // Check if token is blacklisted
+    const blacklisted = await isTokenBlacklisted(token);
+    if (blacklisted) {
+      throw new AppError(401, 'Token has been revoked. Please login again.');
     }
 
     // Verify JWT and extract userId
@@ -56,6 +62,15 @@ export const optionalAuth = async (
 
     if (authHeader && authHeader.startsWith('Bearer ')) {
       const token = authHeader.substring(7);
+      
+      // Check if token is blacklisted
+      const blacklisted = await isTokenBlacklisted(token);
+      if (blacklisted) {
+        // For optional auth, we just skip setting the user
+        next();
+        return;
+      }
+      
       // Verify JWT and extract userId if token is present
       const decoded = verifyToken(token);
       req.userId = decoded.userId;

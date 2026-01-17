@@ -53,7 +53,16 @@ export class AuthController {
         ResponseHandler.unauthorized(res, "Not authenticated");
         return;
       }
-      const result = await authService.logout(req.userId);
+
+      // Extract token from authorization header
+      const authHeader = req.headers.authorization;
+      if (!authHeader || !authHeader.startsWith('Bearer ')) {
+        ResponseHandler.unauthorized(res, "No token provided");
+        return;
+      }
+
+      const token = authHeader.substring(7);
+      const result = await authService.logout(req.userId, token);
       ResponseHandler.success(res, result);
     } catch (error) {
       next(error);

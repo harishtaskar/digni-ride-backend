@@ -1,6 +1,7 @@
 import jwt, { JwtPayload } from 'jsonwebtoken';
 import { config } from '../config/env';
 import { logger } from './logger';
+import { prisma } from '../config/prisma';
 
 export interface TokenPayload extends JwtPayload {
   userId: string;
@@ -72,5 +73,47 @@ export const isTokenExpired = (token: string): boolean => {
     return Date.now() >= decoded.exp * 1000;
   } catch {
     return true;
+  }
+};
+
+/**
+ * Add token to blacklist (logout functionality)
+ */
+export const blacklistToken = async (token: string, userId: string): Promise<void> => {
+  try {
+    const decoded = decodeToken(token);
+    if (!decoded || !decoded.exp) {
+      throw new Error('Invalid token');
+    }
+
+    const expiresAt = new Date(decoded.exp * 1000);
+
+    await prisma.tokenBlacklist.create({
+      data: {
+        token,
+        userId,
+        expiresAt,
+      },
+    });
+
+    logger.info({ userId, tokenId: token.substring(0, 20) }, 'Token added to blacklist');
+  } catch (error) {
+    logger.error({ error, userId }, 'Failed to blacklist token');
+    throw error;
+  }
+};
+
+/**
+ * Check if token is blacklisted
+ */
+export const isTokenBlacklisted = async (token: string): Promise<boolean> => {
+  try {
+    const blacklistedToken = await prisma.tokenBlacklist.findUnique({
+      where: { token },
+    });
+    return !!blacklistedToken;
+  } catch (error) {
+    logger.error({ error }, 'Error checking token blacklist');
+    return false;
   }
 };

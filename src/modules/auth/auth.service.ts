@@ -1,6 +1,6 @@
 import { prisma } from '../../config/prisma';
 import { logger } from '../../utils/logger';
-import { generateToken } from '../../utils/jwt';
+import { generateToken, blacklistToken } from '../../utils/jwt';
 import { LoginInput, VerifyOtpInput } from "./auth.validation";
 import { AppError } from '../../middlewares/error.middleware';
 
@@ -134,11 +134,22 @@ export class AuthService {
   }
 
   /**
-   * Mock logout (for JWT blacklisting in production)
+   * Logout user - Blacklist their JWT token
    */
-  async logout(userId: string) {
-    logger.info({ userId }, "User logged out");
-    // TODO: Add token to blacklist (Redis)
-    return { message: "Logged out successfully" };
+  async logout(userId: string, token: string) {
+    try {
+      // Add token to blacklist
+      await blacklistToken(token, userId);
+      
+      logger.info({ userId }, 'User logged out successfully');
+      
+      return { 
+        message: 'Logged out successfully',
+        success: true 
+      };
+    } catch (error) {
+      logger.error({ userId, error }, 'Error during logout');
+      throw new AppError(500, 'Logout failed');
+    }
   }
 }
