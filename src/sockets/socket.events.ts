@@ -1,20 +1,21 @@
-import { getIO } from '../config/socket';
-import { logger } from '../utils/logger';
+import { JsonValue } from "@prisma/client/runtime/library";
+import { getIO } from "../config/socket";
+import { logger } from "../utils/logger";
 
 /**
  * Socket event names for the application
  */
 export const SOCKET_EVENTS = {
   // Ride events
-  RIDE_CREATED: 'ride:created',
-  RIDE_CANCELLED: 'ride:cancelled',
-  RIDE_COMPLETED: 'ride:completed',
+  RIDE_CREATED: "ride:created",
+  RIDE_CANCELLED: "ride:cancelled",
+  RIDE_COMPLETED: "ride:completed",
 
   // Request events
-  REQUEST_CREATED: 'request:created',
-  REQUEST_ACCEPTED: 'request:accepted',
-  REQUEST_REJECTED: 'request:rejected',
-  REQUEST_CANCELLED: 'request:cancelled',
+  REQUEST_CREATED: "request:created",
+  REQUEST_ACCEPTED: "request:accepted",
+  REQUEST_REJECTED: "request:rejected",
+  REQUEST_CANCELLED: "request:cancelled",
 };
 
 /**
@@ -31,8 +32,8 @@ export const emitRideCreated = (
       lastName: string;
       profilePhoto?: string;
     };
-    startLocation: string;
-    endLocation: string;
+    startLocation: JsonValue;
+    endLocation: JsonValue;
     departureTime: string;
     availableSeats: number;
     fare: number;
@@ -76,7 +77,7 @@ export const emitRideCancelled = (rideId: string, riderId: string) => {
       "Ride cancelled event emitted to other users",
     );
   } catch (error) {
-    logger.error({ error }, 'Failed to emit ride cancelled event');
+    logger.error({ error }, "Failed to emit ride cancelled event");
   }
 };
 
@@ -100,7 +101,7 @@ export const emitRideCompleted = (rideId: string, riderId: string) => {
       "Ride completed event emitted to other users",
     );
   } catch (error) {
-    logger.error({ error }, 'Failed to emit ride completed event');
+    logger.error({ error }, "Failed to emit ride completed event");
   }
 };
 
@@ -121,7 +122,7 @@ export const emitRequestCreated = (
     };
     status: string;
   },
-  riderId: string
+  riderId: string,
 ) => {
   try {
     const io = getIO();
@@ -135,7 +136,7 @@ export const emitRequestCreated = (
       "Request created event emitted to rider only",
     );
   } catch (error) {
-    logger.error({ error }, 'Failed to emit request created event');
+    logger.error({ error }, "Failed to emit request created event");
   }
 };
 
@@ -153,11 +154,11 @@ export const emitRequestAccepted = (
   rideDetails?: {
     id: string;
     rideNumber: string;
-    startLocation: string;
-    endLocation: string;
+    startLocation: JsonValue;
+    endLocation: JsonValue;
     departureTime: string;
     fare: number;
-  }
+  },
 ) => {
   try {
     const io = getIO();
@@ -176,7 +177,7 @@ export const emitRequestAccepted = (
       "Request accepted event emitted to passenger only",
     );
   } catch (error) {
-    logger.error({ error }, 'Failed to emit request accepted event');
+    logger.error({ error }, "Failed to emit request accepted event");
   }
 };
 
@@ -190,7 +191,7 @@ export const emitRequestRejected = (
     rideId: string;
     status: string;
   },
-  passengerId: string
+  passengerId: string,
 ) => {
   try {
     const io = getIO();
@@ -208,7 +209,7 @@ export const emitRequestRejected = (
       "Request rejected event emitted to passenger only",
     );
   } catch (error) {
-    logger.error({ error }, 'Failed to emit request rejected event');
+    logger.error({ error }, "Failed to emit request rejected event");
   }
 };
 
@@ -219,7 +220,7 @@ export const emitRequestRejected = (
 export const emitRequestCancelled = (
   requestId: string,
   rideId: string,
-  riderId: string
+  riderId: string,
 ) => {
   try {
     const io = getIO();
@@ -236,6 +237,6 @@ export const emitRequestCancelled = (
       "Request cancelled event emitted to rider only",
     );
   } catch (error) {
-    logger.error({ error }, 'Failed to emit request cancelled event');
+    logger.error({ error }, "Failed to emit request cancelled event");
   }
 };
