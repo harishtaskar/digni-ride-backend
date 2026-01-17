@@ -96,8 +96,8 @@ export class RequestController {
         {
           id: resultData.ride.id,
           rideNumber: resultData.ride.id.substring(0, 8).toUpperCase(),
-          startLocation: String(resultData.ride.startLocation),
-          endLocation: String(resultData.ride.endLocation),
+          startLocation: resultData.ride.startLocation,
+          endLocation: resultData.ride.endLocation,
           departureTime: resultData.ride.departureTime.toISOString(),
           fare: 0,
         },
