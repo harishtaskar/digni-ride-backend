@@ -245,40 +245,83 @@ export class RideService {
    * Get user's rides (created or joined)
    */
   async getUserRides(userId: string, type: 'created' | 'joined') {
-    const where: Prisma.RideWhereInput =
-      type === 'created' ? { riderId: userId } : { passengerId: userId };
+    if (type === "created") {
+      // For created rides, filter by riderId
+      const where: Prisma.RideWhereInput = { riderId: userId };
 
-    const rides = await prisma.ride.findMany({
-      where,
-      include: {
-        rider: {
-          select: {
-            id: true,
-            name: true,
-            city: true,
-            vehicleNumber: true,
+      const rides = await prisma.ride.findMany({
+        where,
+        include: {
+          rider: {
+            select: {
+              id: true,
+              name: true,
+              city: true,
+              vehicleNumber: true,
+            },
+          },
+          passenger: {
+            select: {
+              id: true,
+              name: true,
+            },
+          },
+          _count: {
+            select: {
+              requests: true,
+            },
           },
         },
-        passenger: {
-          select: {
-            id: true,
-            name: true,
-          },
-        },
-        _count: {
-          select: {
-            requests: true,
-          },
-        },
-      },
-      orderBy: { departureTime: "desc" },
-    });
+        orderBy: { departureTime: "desc" },
+      });
 
-    // Map the response to include requestCount field
-    return rides.map((ride) => ({
-      ...ride,
-      requestCount: ride._count.requests,
-      _count: undefined, // Remove _count from response
-    }));
+      // Map the response to include requestCount field
+      return rides.map((ride) => ({
+        ...ride,
+        requestCount: ride._count.requests,
+        _count: undefined, // Remove _count from response
+      }));
+    } else {
+      // For joined rides, find all rides where user has a RideRequest (any status)
+      const rideRequests = await prisma.rideRequest.findMany({
+        where: { passengerId: userId },
+        include: {
+          ride: {
+            include: {
+              rider: {
+                select: {
+                  id: true,
+                  name: true,
+                  city: true,
+                  vehicleNumber: true,
+                },
+              },
+              passenger: {
+                select: {
+                  id: true,
+                  name: true,
+                },
+              },
+              _count: {
+                select: {
+                  requests: true,
+                },
+              },
+            },
+          },
+        },
+        orderBy: { createdAt: "desc" },
+      });
+
+      // Extract ride data and map requestCount
+      return rideRequests.map((request) => {
+        const ride = request.ride;
+        return {
+          ...ride,
+          requestCount: ride._count.requests,
+          _count: undefined, // Remove _count from response
+        };
+      });
+    }
   }
 }
