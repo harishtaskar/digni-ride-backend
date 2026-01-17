@@ -49,22 +49,8 @@ export class RequestService {
         status: RideRequestStatus.PENDING,
       },
       include: {
-        passenger: {
-          select: {
-            id: true,
-            name: true,
-            phone: true,
-            city: true,
-          },
-        },
-        ride: {
-          select: {
-            id: true,
-            startLocation: true,
-            endLocation: true,
-            departureTime: true,
-          },
-        },
+        passenger: true,
+        ride: true,
       },
     });
 
@@ -116,7 +102,18 @@ export class RequestService {
   async acceptRequest(requestId: string, riderId: string) {
     const request = await prisma.rideRequest.findUnique({
       where: { id: requestId },
-      include: { ride: true },
+      include: {
+        ride: {
+          select: {
+            id: true,
+            riderId: true,
+            status: true,
+            startLocation: true,
+            endLocation: true,
+            departureTime: true,
+          },
+        },
+      },
     });
 
     if (!request) {
@@ -213,6 +210,7 @@ export class RequestService {
     const rejectedRequest = await prisma.rideRequest.update({
       where: { id: requestId },
       data: { status: RideRequestStatus.REJECTED },
+      include: { passenger: true },
     });
 
     logger.info({ requestId, riderId }, 'Request rejected');
@@ -251,6 +249,7 @@ export class RequestService {
   async cancelRequest(requestId: string, passengerId: string) {
     const request = await prisma.rideRequest.findUnique({
       where: { id: requestId },
+      include: { ride: true },
     });
 
     if (!request) {
@@ -270,6 +269,10 @@ export class RequestService {
     });
 
     logger.info({ requestId, passengerId }, 'Request cancelled');
-    return { message: 'Request cancelled successfully' };
+    return {
+      id: request.id,
+      rideId: request.rideId,
+      ride: request.ride,
+    };
   }
 }
