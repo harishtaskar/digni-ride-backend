@@ -7,7 +7,11 @@ const rideController = new RideController();
 
 // Public/optional auth routes
 router.get('/', optionalAuth, rideController.getRides.bind(rideController));
-router.get('/:id', rideController.getRideById.bind(rideController));
+router.get(
+  "/:id",
+  optionalAuth,
+  rideController.getRideById.bind(rideController),
+);
 
 // Protected routes
 router.post('/', authenticate, rideController.createRide.bind(rideController));

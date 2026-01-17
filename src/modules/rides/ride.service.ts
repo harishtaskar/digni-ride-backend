@@ -122,8 +122,42 @@ export class RideService {
       prisma.ride.count({ where }),
     ]);
 
+    // Add hasRequested field for each ride if user is authenticated
+    const ridesWithRequests = rides.map((ride) => ({
+      ...ride,
+      hasRequested: false,
+      _count: undefined,
+    }));
+
+    // If user is authenticated, check which rides they've requested
+    if (userId) {
+      const userRequestedRides = await prisma.rideRequest.findMany({
+        where: {
+          rideId: { in: rides.map((r) => r.id) },
+          passengerId: userId,
+        },
+        select: { rideId: true },
+      });
+
+      const requestedRideIds = new Set(
+        userRequestedRides.map((r) => r.rideId),
+      );
+
+      return {
+        rides: ridesWithRequests.map((ride) => ({
+          ...ride,
+          hasRequested: requestedRideIds.has(ride.id),
+        })),
+        pagination: {
+          total,
+          limit: query.limit || 20,
+          offset: query.offset || 0,
+        },
+      };
+    }
+
     return {
-      rides,
+      rides: ridesWithRequests,
       pagination: {
         total,
         limit: query.limit || 20,
@@ -135,7 +169,7 @@ export class RideService {
   /**
    * Get ride by ID
    */
-  async getRideById(rideId: string) {
+  async getRideById(rideId: string, userId?: string) {
     const ride = await prisma.ride.findUnique({
       where: { id: rideId },
       include: {
@@ -167,7 +201,25 @@ export class RideService {
       throw new AppError(404, 'Ride not found');
     }
 
-    return ride;
+    // Check if current user has requested this ride
+    let hasRequested = false;
+    if (userId) {
+      const existingRequest = await prisma.rideRequest.findUnique({
+        where: {
+          rideId_passengerId: {
+            rideId,
+            passengerId: userId,
+          },
+        },
+      });
+      hasRequested = !!existingRequest;
+    }
+
+    return {
+      ...ride,
+      hasRequested,
+      _count: undefined,
+    };
   }
 
   /**
