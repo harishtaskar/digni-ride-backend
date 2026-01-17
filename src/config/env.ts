@@ -4,13 +4,18 @@ import { z } from 'zod';
 dotenv.config();
 
 const envSchema = z.object({
-  NODE_ENV: z.enum(['development', 'production', 'test']).default('development'),
-  PORT: z.string().default('3000'),
-  DATABASE_URL: z.string().min(1, 'DATABASE_URL is required'),
-  JWT_SECRET: z.string().min(32, 'JWT_SECRET must be at least 32 characters'),
-  JWT_EXPIRES_IN: z.string().default('7d'),
-  OTP_EXPIRY_MINUTES: z.string().default('5'),
-  LOG_LEVEL: z.enum(['trace', 'debug', 'info', 'warn', 'error', 'fatal']).default('info'),
+  NODE_ENV: z
+    .enum(["development", "production", "test"])
+    .default("development"),
+  PORT: z.string().default("3000"),
+  CORS_ORIGIN: z.string().default("*"),
+  DATABASE_URL: z.string().min(1, "DATABASE_URL is required"),
+  JWT_SECRET: z.string().min(32, "JWT_SECRET must be at least 32 characters"),
+  JWT_EXPIRES_IN: z.string().default("7d"),
+  OTP_EXPIRY_MINUTES: z.string().default("5"),
+  LOG_LEVEL: z
+    .enum(["trace", "debug", "info", "warn", "error", "fatal"])
+    .default("info"),
 });
 
 const parseEnv = () => {
@@ -34,6 +39,7 @@ export const config = {
   app: {
     env: env.NODE_ENV,
     port: parseInt(env.PORT, 10),
+    corsOrigin: env.CORS_ORIGIN,
   },
   db: {
     url: env.DATABASE_URL,
