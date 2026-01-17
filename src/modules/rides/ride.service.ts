@@ -51,117 +51,132 @@ export class RideService {
    * Get rides with filters
    */
   async getRides(query: GetRidesQuery, userId?: string) {
-    const where: Prisma.RideWhereInput = {
-      status: query.status || RideStatus.OPEN,
-    };
+    const limit = query.limit || 20;
+    const offset = query.offset || 0;
+    const status = query.status || RideStatus.OPEN;
 
-    // Filter by location (Geospatial)
+    // Build conditional SQL fragments
+    let geoCondition = Prisma.empty;
     if (query.lat !== undefined && query.lng !== undefined) {
-      // Find rides starting within 2000 meters (2km)
-      // Extract lat/lng from startLocation JSON field
-      const result = await prisma.$queryRaw<{ id: string }[]>`
-        SELECT id
-        FROM "Ride"
-        WHERE ST_DWithin(
+      geoCondition = Prisma.sql`
+        AND ST_DWithin(
           ST_SetSRID(ST_MakePoint(
-            CAST("startLocation"->>'lng' AS FLOAT), 
-            CAST("startLocation"->>'lat' AS FLOAT)
+            CAST(r."startLocation"->>'lng' AS FLOAT), 
+            CAST(r."startLocation"->>'lat' AS FLOAT)
           ), 4326)::geography,
           ST_SetSRID(ST_MakePoint(${query.lng}, ${query.lat}), 4326)::geography,
           2000
         )
       `;
-      
-      const rideIds = result.map((r) => r.id);
-      
-      // If filtering by location, only include rides in range
-      where.id = { in: rideIds };
     }
 
-    // Filter by departure time range
-    if (query.departureFrom || query.departureTo) {
-      where.departureTime = {
-        ...(query.departureFrom && { gte: new Date(query.departureFrom) }),
-        ...(query.departureTo && { lte: new Date(query.departureTo) }),
+    let departureCondition = Prisma.empty;
+    if (query.departureFrom) {
+      departureCondition = Prisma.sql`${departureCondition} AND r."departureTime" >= ${new Date(query.departureFrom)}`;
+    }
+    if (query.departureTo) {
+      departureCondition = Prisma.sql`${departureCondition} AND r."departureTime" <= ${new Date(query.departureTo)}`;
+    }
+
+    let riderCondition = Prisma.empty;
+    if (userId) {
+      riderCondition = Prisma.sql`AND r."riderId" != ${userId}`;
+    }
+
+    // Execute raw query for sorted IDs and total count
+    const [idResults, countResults] = await Promise.all([
+      prisma.$queryRaw<{ id: string }[]>`
+        SELECT r.id
+        FROM "Ride" r
+        ${
+          userId
+            ? Prisma.sql`LEFT JOIN "RideRequest" rr ON rr."rideId" = r.id AND rr."passengerId" = ${userId}`
+            : Prisma.empty
+        }
+        WHERE r.status = ${status}::"RideStatus"
+        ${geoCondition}
+        ${departureCondition}
+        ${riderCondition}
+        ORDER BY ${
+          userId ? Prisma.sql`(rr.id IS NOT NULL) DESC,` : Prisma.empty
+        } r."createdAt" DESC
+        LIMIT ${limit} OFFSET ${offset}
+      `,
+      prisma.$queryRaw<{ count: bigint }[]>`
+        SELECT COUNT(*) as count
+        FROM "Ride" r
+        WHERE r.status = ${status}::"RideStatus"
+        ${geoCondition}
+        ${departureCondition}
+        ${riderCondition}
+      `,
+    ]);
+
+    const rideIds = idResults.map((r) => r.id);
+    const total = Number(countResults[0].count);
+
+    if (rideIds.length === 0) {
+      return {
+        rides: [],
+        pagination: { total, limit, offset },
       };
     }
 
-    // Exclude user's own rides when browsing
-    if (userId) {
-      where.riderId = { not: userId };
-    }
-
-    const [rides, total] = await Promise.all([
-      prisma.ride.findMany({
-        where,
-        include: {
-          rider: {
-            select: {
-              id: true,
-              name: true,
-              city: true,
-              vehicleNumber: true,
-            },
-          },
-          passenger: {
-            select: {
-              id: true,
-              name: true,
-            },
-          },
-          _count: {
-            select: {
-              requests: true,
-            },
+    // Fetch full ride details for the sorted IDs
+    const rides = await prisma.ride.findMany({
+      where: { id: { in: rideIds } },
+      include: {
+        rider: {
+          select: {
+            id: true,
+            name: true,
+            city: true,
+            vehicleNumber: true,
           },
         },
-        orderBy: { departureTime: 'asc' },
-        take: query.limit || 20,
-        skip: query.offset || 0,
-      }),
-      prisma.ride.count({ where }),
-    ]);
+        passenger: {
+          select: {
+            id: true,
+            name: true,
+          },
+        },
+        _count: {
+          select: {
+            requests: true,
+          },
+        },
+      },
+    });
 
-    // Add hasRequested field for each ride if user is authenticated
-    const ridesWithRequests = rides.map((ride) => ({
-      ...ride,
-      hasRequested: false,
-      _count: undefined,
-    }));
+    // Re-sort rides to match the order from the raw SQL query
+    const rideMap = new Map(rides.map((r) => [r.id, r]));
+    const sortedRides = rideIds
+      .map((id) => rideMap.get(id))
+      .filter((r): r is NonNullable<typeof r> => r !== undefined);
 
-    // If user is authenticated, check which rides they've requested
+    // Add hasRequested field
+    let requestedRideIds = new Set<string>();
     if (userId) {
       const userRequestedRides = await prisma.rideRequest.findMany({
         where: {
-          rideId: { in: rides.map((r) => r.id) },
+          rideId: { in: rideIds },
           passengerId: userId,
         },
         select: { rideId: true },
       });
-
-      const requestedRideIds = new Set(
-        userRequestedRides.map((r) => r.rideId),
-      );
-
-      return {
-        rides: ridesWithRequests.map((ride) => ({
-          ...ride,
-          hasRequested: requestedRideIds.has(ride.id),
-        })),
-        pagination: {
-          total,
-          limit: query.limit || 20,
-          offset: query.offset || 0,
-        },
-      };
+      requestedRideIds = new Set(userRequestedRides.map((r) => r.rideId));
     }
 
     return {
-      rides: ridesWithRequests,
+      rides: sortedRides.map((ride) => ({
+        ...ride,
+        hasRequested: requestedRideIds.has(ride.id),
+        _count: undefined,
+      })),
       pagination: {
         total,
-        limit: query.limit || 20,
-        offset: query.offset || 0,
+        limit,
+        offset,
       },
     };
   }
