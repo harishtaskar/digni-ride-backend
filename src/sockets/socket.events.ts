@@ -19,51 +19,62 @@ export const SOCKET_EVENTS = {
 
 /**
  * Emit when a new ride is created
- * Broadcast to all connected users
+ * Broadcast to all connected users EXCEPT the ride creator
  */
-export const emitRideCreated = (rideData: {
-  id: string;
-  rideNumber: string;
-  rider: {
+export const emitRideCreated = (
+  rideData: {
     id: string;
-    firstName: string;
-    lastName: string;
-    profilePhoto?: string;
-  };
-  startLocation: string;
-  endLocation: string;
-  departureTime: string;
-  availableSeats: number;
-  fare: number;
-  motorcycleDetails?: string;
-}) => {
+    rideNumber: string;
+    rider: {
+      id: string;
+      firstName: string;
+      lastName: string;
+      profilePhoto?: string;
+    };
+    startLocation: string;
+    endLocation: string;
+    departureTime: string;
+    availableSeats: number;
+    fare: number;
+    motorcycleDetails?: string;
+  },
+  riderId: string,
+) => {
   try {
     const io = getIO();
-    io.emit(SOCKET_EVENTS.RIDE_CREATED, {
+    // Emit to all users except the ride creator
+    io.except(`user:${riderId}`).emit(SOCKET_EVENTS.RIDE_CREATED, {
       timestamp: new Date().toISOString(),
       data: rideData,
     });
-    logger.info({ rideId: rideData.id }, 'Ride created event emitted');
+    logger.info(
+      { rideId: rideData.id, riderId },
+      "Ride created event emitted to other users",
+    );
   } catch (error) {
-    logger.error({ error }, 'Failed to emit ride created event');
+    logger.error({ error }, "Failed to emit ride created event");
   }
 };
 
 /**
  * Emit when a ride is cancelled
- * Notify all passengers who requested to join this ride
+ * Notify all users EXCEPT the ride creator
  */
 export const emitRideCancelled = (rideId: string, riderId: string) => {
   try {
     const io = getIO();
-    io.emit(SOCKET_EVENTS.RIDE_CANCELLED, {
+    // Emit to all users except the ride creator
+    io.except(`user:${riderId}`).emit(SOCKET_EVENTS.RIDE_CANCELLED, {
       timestamp: new Date().toISOString(),
       data: {
         rideId,
         riderId,
       },
     });
-    logger.info({ rideId }, 'Ride cancelled event emitted');
+    logger.info(
+      { rideId, riderId },
+      "Ride cancelled event emitted to other users",
+    );
   } catch (error) {
     logger.error({ error }, 'Failed to emit ride cancelled event');
   }
@@ -71,18 +82,23 @@ export const emitRideCancelled = (rideId: string, riderId: string) => {
 
 /**
  * Emit when a ride is completed
+ * Notify all users EXCEPT the ride creator
  */
 export const emitRideCompleted = (rideId: string, riderId: string) => {
   try {
     const io = getIO();
-    io.emit(SOCKET_EVENTS.RIDE_COMPLETED, {
+    // Emit to all users except the ride creator
+    io.except(`user:${riderId}`).emit(SOCKET_EVENTS.RIDE_COMPLETED, {
       timestamp: new Date().toISOString(),
       data: {
         rideId,
         riderId,
       },
     });
-    logger.info({ rideId }, 'Ride completed event emitted');
+    logger.info(
+      { rideId, riderId },
+      "Ride completed event emitted to other users",
+    );
   } catch (error) {
     logger.error({ error }, 'Failed to emit ride completed event');
   }
@@ -90,7 +106,7 @@ export const emitRideCompleted = (rideId: string, riderId: string) => {
 
 /**
  * Emit when a user requests to join a ride
- * Send notification to the ride owner (rider)
+ * Send notification to the ride owner (rider) only
  */
 export const emitRequestCreated = (
   requestData: {
@@ -109,14 +125,14 @@ export const emitRequestCreated = (
 ) => {
   try {
     const io = getIO();
-    // Emit to the ride owner
+    // Emit only to the ride owner (rider)
     io.to(`user:${riderId}`).emit(SOCKET_EVENTS.REQUEST_CREATED, {
       timestamp: new Date().toISOString(),
       data: requestData,
     });
     logger.info(
       { requestId: requestData.id, riderId },
-      'Request created event emitted to rider'
+      "Request created event emitted to rider only",
     );
   } catch (error) {
     logger.error({ error }, 'Failed to emit request created event');
@@ -125,7 +141,7 @@ export const emitRequestCreated = (
 
 /**
  * Emit when a rider accepts a passenger's request
- * Send notification to the passenger
+ * Send notification to the passenger only
  */
 export const emitRequestAccepted = (
   requestData: {
@@ -145,7 +161,7 @@ export const emitRequestAccepted = (
 ) => {
   try {
     const io = getIO();
-    // Emit to the passenger who sent the request
+    // Emit only to the passenger whose request was accepted
     io.to(`user:${passengerId}`).emit(SOCKET_EVENTS.REQUEST_ACCEPTED, {
       timestamp: new Date().toISOString(),
       data: {
@@ -157,7 +173,7 @@ export const emitRequestAccepted = (
     });
     logger.info(
       { requestId: requestData.id, passengerId },
-      'Request accepted event emitted to passenger'
+      "Request accepted event emitted to passenger only",
     );
   } catch (error) {
     logger.error({ error }, 'Failed to emit request accepted event');
@@ -166,7 +182,7 @@ export const emitRequestAccepted = (
 
 /**
  * Emit when a rider rejects a passenger's request
- * Send notification to the passenger
+ * Send notification to the passenger only
  */
 export const emitRequestRejected = (
   requestData: {
@@ -178,7 +194,7 @@ export const emitRequestRejected = (
 ) => {
   try {
     const io = getIO();
-    // Emit to the passenger who sent the request
+    // Emit only to the passenger whose request was rejected
     io.to(`user:${passengerId}`).emit(SOCKET_EVENTS.REQUEST_REJECTED, {
       timestamp: new Date().toISOString(),
       data: {
@@ -189,7 +205,7 @@ export const emitRequestRejected = (
     });
     logger.info(
       { requestId: requestData.id, passengerId },
-      'Request rejected event emitted to passenger'
+      "Request rejected event emitted to passenger only",
     );
   } catch (error) {
     logger.error({ error }, 'Failed to emit request rejected event');
@@ -198,6 +214,7 @@ export const emitRequestRejected = (
 
 /**
  * Emit when a passenger cancels their request
+ * Notify the ride owner (rider) only
  */
 export const emitRequestCancelled = (
   requestId: string,
@@ -206,7 +223,7 @@ export const emitRequestCancelled = (
 ) => {
   try {
     const io = getIO();
-    // Emit to the ride owner
+    // Emit only to the ride owner to notify them that a passenger cancelled their request
     io.to(`user:${riderId}`).emit(SOCKET_EVENTS.REQUEST_CANCELLED, {
       timestamp: new Date().toISOString(),
       data: {
@@ -216,7 +233,7 @@ export const emitRequestCancelled = (
     });
     logger.info(
       { requestId, riderId },
-      'Request cancelled event emitted to rider'
+      "Request cancelled event emitted to rider only",
     );
   } catch (error) {
     logger.error({ error }, 'Failed to emit request cancelled event');

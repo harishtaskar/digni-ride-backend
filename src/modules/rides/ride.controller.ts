@@ -29,21 +29,24 @@ export class RideController {
       const data = createRideSchema.parse(req.body);
       const ride = await rideService.createRide(req.userId, data);
 
-      // Emit socket event for new ride creation
-      emitRideCreated({
-        id: ride.id,
-        rideNumber: ride.id.substring(0, 8).toUpperCase(),
-        rider: {
-          id: ride.rider.id,
-          firstName: ride.rider.name?.split(" ")[0] || "Unknown",
-          lastName: ride.rider.name?.split(" ")[1] || "",
+      // Emit socket event for new ride creation (exclude ride creator)
+      emitRideCreated(
+        {
+          id: ride.id,
+          rideNumber: ride.id.substring(0, 8).toUpperCase(),
+          rider: {
+            id: ride.rider.id,
+            firstName: ride.rider.name?.split(" ")[0] || "Unknown",
+            lastName: ride.rider.name?.split(" ")[1] || "",
+          },
+          startLocation: String(ride.startLocation),
+          endLocation: String(ride.endLocation),
+          departureTime: ride.departureTime.toISOString(),
+          availableSeats: 1,
+          fare: 0,
         },
-        startLocation: String(ride.startLocation),
-        endLocation: String(ride.endLocation),
-        departureTime: ride.departureTime.toISOString(),
-        availableSeats: 1,
-        fare: 0,
-      });
+        ride.riderId,
+      );
 
       ResponseHandler.created(res, ride, "Ride created successfully");
     } catch (error) {
