@@ -56,6 +56,7 @@ export class AuthService {
       message: "OTP sent successfully",
       userId: user.id,
       otp,
+      isRegistered: !!user.city && !!user.name,
     };
   }
 
