@@ -56,18 +56,23 @@ export class RideService {
     const status = query.status || RideStatus.OPEN;
 
     // Build conditional SQL fragments
-    let geoCondition = Prisma.empty;
+    let orderClause = Prisma.sql`r."createdAt" DESC`;
+    let distanceSelect = Prisma.empty;
     if (query.lat !== undefined && query.lng !== undefined) {
-      geoCondition = Prisma.sql`
-        AND ST_DWithin(
+      distanceSelect = Prisma.sql`,
+        ST_Distance(
           ST_SetSRID(ST_MakePoint(
             CAST(r."startLocation"->>'lng' AS FLOAT), 
             CAST(r."startLocation"->>'lat' AS FLOAT)
           ), 4326)::geography,
-          ST_SetSRID(ST_MakePoint(${query.lng}, ${query.lat}), 4326)::geography,
-          2000
-        )
-      `;
+          ST_SetSRID(ST_MakePoint(${query.lng}, ${query.lat}), 4326)::geography
+        ) as distance`;
+
+      orderClause = Prisma.sql`${
+        userId ? Prisma.sql`(rr.id IS NOT NULL) DESC,` : Prisma.empty
+      } distance ASC, r."createdAt" DESC`;
+    } else if (userId) {
+      orderClause = Prisma.sql`(rr.id IS NOT NULL) DESC, r."createdAt" DESC`;
     }
 
     let departureCondition = Prisma.empty;
@@ -86,7 +91,7 @@ export class RideService {
     // Execute raw query for sorted IDs and total count
     const [idResults, countResults] = await Promise.all([
       prisma.$queryRaw<{ id: string }[]>`
-        SELECT r.id
+        SELECT r.id ${distanceSelect}
         FROM "Ride" r
         ${
           userId
@@ -94,19 +99,15 @@ export class RideService {
             : Prisma.empty
         }
         WHERE r.status = ${status}::"RideStatus"
-        ${geoCondition}
         ${departureCondition}
         ${riderCondition}
-        ORDER BY ${
-          userId ? Prisma.sql`(rr.id IS NOT NULL) DESC,` : Prisma.empty
-        } r."createdAt" DESC
+        ORDER BY ${orderClause}
         LIMIT ${limit} OFFSET ${offset}
       `,
       prisma.$queryRaw<{ count: bigint }[]>`
         SELECT COUNT(*) as count
         FROM "Ride" r
         WHERE r.status = ${status}::"RideStatus"
-        ${geoCondition}
         ${departureCondition}
         ${riderCondition}
       `,
