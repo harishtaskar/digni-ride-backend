@@ -3,6 +3,11 @@ import { RideService } from './ride.service';
 import { createRideSchema, getRidesQuerySchema } from './ride.validation';
 import { ResponseHandler } from '../../utils/response';
 import { AuthRequest } from '../../middlewares/auth.middleware';
+import {
+  emitRideCreated,
+  emitRideCancelled,
+  emitRideCompleted,
+} from "../../sockets/socket.events";
 
 const rideService = new RideService();
 
@@ -19,7 +24,24 @@ export class RideController {
       }
       const data = createRideSchema.parse(req.body);
       const ride = await rideService.createRide(req.userId, data);
-      ResponseHandler.created(res, ride, 'Ride created successfully');
+
+      // Emit socket event for new ride creation
+      emitRideCreated({
+        id: ride.id,
+        rideNumber: ride.id.substring(0, 8).toUpperCase(),
+        rider: {
+          id: ride.rider.id,
+          firstName: ride.rider.name?.split(" ")[0] || "Unknown",
+          lastName: ride.rider.name?.split(" ")[1] || "",
+        },
+        startLocation: String(ride.startLocation),
+        endLocation: String(ride.endLocation),
+        departureTime: ride.departureTime.toISOString(),
+        availableSeats: 1,
+        fare: 0,
+      });
+
+      ResponseHandler.created(res, ride, "Ride created successfully");
     } catch (error) {
       next(error);
     }
@@ -65,7 +87,11 @@ export class RideController {
       }
       const { id } = req.params as { id: string };
       const ride = await rideService.completeRide(id, req.userId);
-      ResponseHandler.success(res, ride, 'Ride completed successfully');
+
+      // Emit socket event for ride completion
+      emitRideCompleted(ride.id, ride.riderId);
+
+      ResponseHandler.success(res, ride, "Ride completed successfully");
     } catch (error) {
       next(error);
     }
@@ -83,6 +109,10 @@ export class RideController {
       }
       const { id } = req.params as { id: string };
       const result = await rideService.cancelRide(id, req.userId);
+
+      // Emit socket event for ride cancellation
+      emitRideCancelled(id, req.userId);
+
       ResponseHandler.success(res, result);
     } catch (error) {
       next(error);
