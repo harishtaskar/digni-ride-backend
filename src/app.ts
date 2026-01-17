@@ -10,6 +10,7 @@ import userRoutes from './modules/users/user.routes';
 import rideRoutes from './modules/rides/ride.routes';
 import requestRoutes from './modules/requests/request.routes';
 import feedbackRoutes from './modules/feedback/feedback.routes';
+import addressRoutes from "./modules/addresses/address.routes";
 
 export const createApp = (): Application => {
   const app = express();
@@ -48,20 +49,22 @@ export const createApp = (): Application => {
   app.use('/api/v1/rides', rideRoutes);
   app.use('/api/v1', requestRoutes);
   app.use('/api/v1/feedback', feedbackRoutes);
+  app.use("/api/v1/addresses", addressRoutes);
 
   // Root endpoint
   app.get('/', (_req, res) => {
     res.json({
-      message: 'Digni Ride API - Motorcycle Ride Sharing Platform',
-      version: '1.0.0',
+      message: "Digni Ride API - Motorcycle Ride Sharing Platform",
+      version: "1.0.0",
       endpoints: {
-        health: '/health',
-        api: '/api/v1',
-        auth: '/api/v1/auth',
-        users: '/api/v1/users',
-        rides: '/api/v1/rides',
-        requests: '/api/v1/requests',
-        feedback: '/api/v1/feedback',
+        health: "/health",
+        api: "/api/v1",
+        auth: "/api/v1/auth",
+        users: "/api/v1/users",
+        rides: "/api/v1/rides",
+        requests: "/api/v1/requests",
+        feedback: "/api/v1/feedback",
+        addresses: "/api/v1/addresses",
       },
     });
   });
