@@ -1,0 +1,1026 @@
+# Digni Ride - User Flow Documentation
+
+## Overview
+
+Digni Ride is a motorcycle ride-sharing platform that connects riders (who own vehicles) with passengers. The system supports real-time notifications via WebSockets, JWT-based authentication with OTP verification, and comprehensive ride management workflows.
+
+---
+
+## Table of Contents
+
+1. [Authentication Flow](#authentication-flow)
+2. [User Onboarding](#user-onboarding)
+3. [Rider Flows](#rider-flows)
+4. [Passenger Flows](#passenger-flows)
+5. [Ride Management](#ride-management)
+6. [Feedback System](#feedback-system)
+7. [Real-time Events](#real-time-events)
+
+---
+
+## Authentication Flow
+
+### 1. OTP-Based Login/Registration
+
+#### Step 1: Request Login
+**Endpoint:** `POST /api/v1/auth/login`
+
+**Request:**
+```json
+{
+  "phone": "1234567890"
+}
+```
+
+**Response:**
+```json
+{
+  "success": true,
+  "data": {
+    "message": "OTP sent successfully",
+    "userId": "user-uuid",
+    "otp": "123456",
+    "isRegistered": false
+  }
+}
+```
+
+**What happens:**
+- System checks if user with this phone exists
+- If new user → creates account with just phone number (incomplete registration)
+- If existing user → retrieves user data
+- Generates 6-digit OTP (expires in 5 minutes)
+- **Development mode:** OTP is returned in response
+
+#### Step 2: Verify OTP and Get Token
+**Endpoint:** `POST /api/v1/auth/verify-otp`
+
+**Request:**
+```json
+{
+  "phone": "1234567890",
+  "otp": "123456"
+}
+```
+
+**Response:**
+```json
+{
+  "success": true,
+  "data": {
+    "message": "OTP verified successfully",
+    "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+    "userId": "user-uuid",
+    "isRegistered": false
+  }
+}
+```
+
+**What happens:**
+- Validates OTP against stored code and expiration time
+- Generates JWT token with user ID (expires in 7 days)
+- Returns token for authenticated requests
+- Indicates if user registration is complete
+
+#### Step 3: Logout
+**Endpoint:** `POST /api/v1/auth/logout` (Protected)
+
+**Request Headers:**
+```
+Authorization: Bearer <JWT_TOKEN>
+```
+
+**Response:**
+```json
+{
+  "success": true,
+  "data": {
+    "message": "Logged out successfully",
+    "success": true
+  }
+}
+```
+
+**What happens:**
+- Extracts JWT token from Authorization header
+- Adds token to blacklist in database
+- Future requests with this token will be rejected
+- User must login again to get new token
+
+---
+
+## User Onboarding
+
+### Complete User Profile
+
+**Endpoint:** `PATCH /api/v1/users/me` (Protected)
+
+**Request:**
+```json
+{
+  "name": "John Doe",
+  "city": "New York",
+  "vehicleNumber": "NY1234ABC"
+}
+```
+
+**Response:**
+```json
+{
+  "success": true,
+  "data": {
+    "id": "user-uuid",
+    "name": "John Doe",
+    "phone": "1234567890",
+    "city": "New York",
+    "vehicleNumber": "NY1234ABC",
+    "createdAt": "2026-01-17T10:00:00Z",
+    "updatedAt": "2026-01-17T10:05:00Z"
+  }
+}
+```
+
+**What happens:**
+- User completes registration by adding name, city, and vehicle number
+- Vehicle number is **required to create rides**
+- Profile is now complete and ready for ride creation
+
+### Get User Profile
+
+**Endpoint:** `GET /api/v1/users/me` (Protected)
+
+**Response:**
+```json
+{
+  "success": true,
+  "data": {
+    "id": "user-uuid",
+    "name": "John Doe",
+    "phone": "1234567890",
+    "city": "New York",
+    "vehicleNumber": "NY1234ABC"
+  }
+}
+```
+
+### Get User Stats
+
+**Endpoint:** `GET /api/v1/users/me/stats` (Protected)
+
+**Response:**
+```json
+{
+  "success": true,
+  "data": {
+    "totalRidesCreated": 15,
+    "totalRidesJoined": 8,
+    "completedRides": 20,
+    "averageRating": 4.5,
+    "totalFeedbackReceived": 12
+  }
+}
+```
+
+---
+
+## Rider Flows
+
+### Scenario: User as Ride Creator (Rider)
+
+#### Step 1: Create a Ride
+**Endpoint:** `POST /api/v1/rides` (Protected)
+
+**Request:**
+```json
+{
+  "startLocation": {
+    "lat": 40.7128,
+    "lng": -74.0060,
+    "address": "Manhattan, New York"
+  },
+  "endLocation": {
+    "lat": 40.7580,
+    "lng": -73.9855,
+    "address": "Times Square, New York"
+  },
+  "departureTime": "2026-01-18T10:00:00Z",
+  "note": "Non-smoking ride, prefer quiet passengers"
+}
+```
+
+**Response:**
+```json
+{
+  "success": true,
+  "message": "Ride created successfully",
+  "data": {
+    "id": "ride-uuid",
+    "riderId": "user-uuid",
+    "startLocation": { "lat": 40.7128, "lng": -74.0060, ... },
+    "endLocation": { "lat": 40.7580, "lng": -73.9855, ... },
+    "departureTime": "2026-01-18T10:00:00Z",
+    "status": "OPEN",
+    "note": "Non-smoking ride...",
+    "rider": { ... }
+  }
+}
+```
+
+**What happens:**
+- Validates user has vehicle number (required)
+- Creates ride with OPEN status
+- Ride is immediately visible to passengers
+- **Real-time event:** Broadcasts `RIDE_CREATED` to all connected users
+
+#### Step 2: View Ride Requests
+**Endpoint:** `GET /api/v1/rides/:rideId/requests` (Protected)
+
+**Response:**
+```json
+{
+  "success": true,
+  "data": [
+    {
+      "id": "request-uuid-1",
+      "rideId": "ride-uuid",
+      "status": "PENDING",
+      "passenger": {
+        "id": "passenger-uuid-1",
+        "name": "Alice Smith",
+        "phone": "9876543210"
+      },
+      "note": "Can I join this ride?"
+    },
+    {
+      "id": "request-uuid-2",
+      "rideId": "ride-uuid",
+      "status": "ACCEPTED",
+      "passenger": { ... }
+    }
+  ]
+}
+```
+
+**What happens:**
+- Lists all requests for a ride
+- Only ride creator can view requests
+- Shows passenger details and request status
+- Helps rider decide who to accept
+
+#### Step 3: Accept a Request
+**Endpoint:** `POST /api/v1/requests/:requestId/accept` (Protected)
+
+**Response:**
+```json
+{
+  "success": true,
+  "data": {
+    "message": "Request accepted",
+    "request": {
+      "id": "request-uuid",
+      "rideId": "ride-uuid",
+      "status": "ACCEPTED"
+    },
+    "ride": {
+      "id": "ride-uuid",
+      "passengerId": "passenger-uuid",
+      "status": "MATCHED"
+    }
+  }
+}
+```
+
+**What happens:**
+- Changes request status to ACCEPTED
+- Updates ride status to MATCHED (passenger assigned)
+- Only one passenger can be accepted per ride
+- **Real-time event:** Notifies passenger with `REQUEST_ACCEPTED` event
+
+#### Step 4: Reject a Request
+**Endpoint:** `POST /api/v1/requests/:requestId/reject` (Protected)
+
+**Response:**
+```json
+{
+  "success": true,
+  "data": {
+    "message": "Request rejected",
+    "request": {
+      "id": "request-uuid",
+      "status": "REJECTED"
+    }
+  }
+}
+```
+
+**What happens:**
+- Changes request status to REJECTED
+- Ride remains OPEN for other requests
+- **Real-time event:** Notifies passenger with `REQUEST_REJECTED` event
+
+#### Step 5: Complete a Ride
+**Endpoint:** `POST /api/v1/rides/:rideId/complete` (Protected)
+
+**Response:**
+```json
+{
+  "success": true,
+  "message": "Ride completed successfully",
+  "data": {
+    "id": "ride-uuid",
+    "status": "COMPLETED",
+    "rider": { ... },
+    "passenger": { ... }
+  }
+}
+```
+
+**What happens:**
+- Changes ride status to COMPLETED
+- Only rider can complete their ride
+- Only MATCHED rides can be completed
+- **Real-time event:** Broadcasts `RIDE_COMPLETED` event
+- Both parties can now leave feedback
+
+#### Step 6: Cancel a Ride
+**Endpoint:** `DELETE /api/v1/rides/:rideId` (Protected)
+
+**Response:**
+```json
+{
+  "success": true,
+  "message": "Ride cancelled successfully"
+}
+```
+
+**What happens:**
+- Deletes the ride from system
+- Only works if ride status is OPEN (no passenger accepted)
+- Cannot cancel MATCHED or COMPLETED rides
+- **Real-time event:** Broadcasts `RIDE_CANCELLED` event
+
+#### Step 7: View My Created Rides
+**Endpoint:** `GET /api/v1/rides/me/created` (Protected)
+
+**Response:**
+```json
+{
+  "success": true,
+  "data": [
+    {
+      "id": "ride-uuid-1",
+      "startLocation": { ... },
+      "endLocation": { ... },
+      "departureTime": "2026-01-18T10:00:00Z",
+      "status": "OPEN",
+      "requestCount": 3,
+      "rider": { ... },
+      "passenger": null
+    },
+    {
+      "id": "ride-uuid-2",
+      "status": "MATCHED",
+      "requestCount": 5,
+      "passenger": { ... }
+    }
+  ]
+}
+```
+
+**What happens:**
+- Shows all rides created by current user
+- Includes `requestCount` - number of join requests for each ride
+- Ordered by departure time (most recent first)
+
+---
+
+## Passenger Flows
+
+### Scenario: User Joining a Ride (Passenger)
+
+#### Step 1: Browse Available Rides
+**Endpoint:** `GET /api/v1/rides` (Optional Auth)
+
+**Query Parameters:**
+```
+GET /api/v1/rides?
+  status=OPEN&
+  lat=40.7128&
+  lng=-74.0060&
+  departureFrom=2026-01-18T08:00:00Z&
+  departureTo=2026-01-18T12:00:00Z&
+  limit=20&
+  offset=0
+```
+
+**Response:**
+```json
+{
+  "success": true,
+  "data": {
+    "rides": [
+      {
+        "id": "ride-uuid",
+        "startLocation": { "lat": 40.7128, "lng": -74.0060 },
+        "endLocation": { "lat": 40.7580, "lng": -73.9855 },
+        "departureTime": "2026-01-18T10:00:00Z",
+        "status": "OPEN",
+        "hasRequested": false,
+        "requestCount": 2,
+        "rider": {
+          "id": "rider-uuid",
+          "name": "John Doe",
+          "city": "New York",
+          "vehicleNumber": "NY1234ABC"
+        },
+        "passenger": null
+      }
+    ],
+    "pagination": {
+      "total": 45,
+      "limit": 20,
+      "offset": 0
+    }
+  }
+}
+```
+
+**Filters:**
+- **status**: Filter by ride status (OPEN, MATCHED, COMPLETED)
+- **lat, lng**: Geospatial filter - returns rides starting within 2km
+- **departureFrom, departureTo**: Date range filter
+- **limit, offset**: Pagination
+
+**Response Fields:**
+- **hasRequested**: Boolean - indicates if current user already requested this ride
+- **requestCount**: Number of passengers who requested to join
+
+#### Step 2: View Ride Details
+**Endpoint:** `GET /api/v1/rides/:rideId` (Optional Auth)
+
+**Response:**
+```json
+{
+  "success": true,
+  "data": {
+    "id": "ride-uuid",
+    "startLocation": { ... },
+    "endLocation": { ... },
+    "departureTime": "2026-01-18T10:00:00Z",
+    "status": "OPEN",
+    "hasRequested": false,
+    "note": "Non-smoking ride, prefer quiet passengers",
+    "rider": {
+      "id": "rider-uuid",
+      "name": "John Doe",
+      "phone": "1234567890",
+      "city": "New York",
+      "vehicleNumber": "NY1234ABC"
+    },
+    "passenger": null
+  }
+}
+```
+
+**What happens:**
+- Shows detailed ride information
+- Includes rider profile details
+- Shows if user has already requested (if authenticated)
+
+#### Step 3: Request to Join Ride
+**Endpoint:** `POST /api/v1/rides/:rideId/request` (Protected)
+
+**Request:**
+```json
+{
+  "note": "I'm interested in joining this ride"
+}
+```
+
+**Response:**
+```json
+{
+  "success": true,
+  "message": "Request sent successfully",
+  "data": {
+    "id": "request-uuid",
+    "rideId": "ride-uuid",
+    "passengerId": "user-uuid",
+    "status": "PENDING",
+    "note": "I'm interested in joining this ride",
+    "ride": { ... }
+  }
+}
+```
+
+**What happens:**
+- Creates a request to join the ride
+- Status is initially PENDING
+- Only one request per passenger per ride (enforced by unique constraint)
+- Rider can see this request in their requests list
+- **Real-time event:** Notifies ride owner with `REQUEST_CREATED` event
+
+#### Step 4: Cancel Join Request
+**Endpoint:** `DELETE /api/v1/requests/:requestId` (Protected)
+
+**Response:**
+```json
+{
+  "success": true,
+  "message": "Request cancelled successfully"
+}
+```
+
+**What happens:**
+- Removes the join request
+- Only cancellable if status is PENDING or REJECTED
+- Cannot cancel ACCEPTED requests (ride is MATCHED)
+- **Real-time event:** Broadcasts `REQUEST_CANCELLED` event
+
+#### Step 5: View My Join Requests
+**Endpoint:** `GET /api/v1/requests/me` (Protected)
+
+**Response:**
+```json
+{
+  "success": true,
+  "data": [
+    {
+      "id": "request-uuid-1",
+      "rideId": "ride-uuid-1",
+      "status": "PENDING",
+      "ride": {
+        "id": "ride-uuid-1",
+        "startLocation": { ... },
+        "endLocation": { ... },
+        "departureTime": "2026-01-18T10:00:00Z",
+        "rider": { ... }
+      }
+    },
+    {
+      "id": "request-uuid-2",
+      "rideId": "ride-uuid-2",
+      "status": "ACCEPTED",
+      "ride": { ... }
+    }
+  ]
+}
+```
+
+**What happens:**
+- Lists all requests made by current user
+- Shows PENDING, ACCEPTED, and REJECTED requests
+- Helps user track which rides they're trying to join
+
+#### Step 6: View My Joined Rides
+**Endpoint:** `GET /api/v1/rides/me/joined` (Protected)
+
+**Response:**
+```json
+{
+  "success": true,
+  "data": [
+    {
+      "id": "ride-uuid",
+      "startLocation": { ... },
+      "endLocation": { ... },
+      "departureTime": "2026-01-18T10:00:00Z",
+      "status": "MATCHED",
+      "requestCount": 1,
+      "rider": {
+        "id": "rider-uuid",
+        "name": "John Doe"
+      },
+      "passenger": null
+    }
+  ]
+}
+```
+
+**What happens:**
+- Shows all rides where user has requested (any status: PENDING, ACCEPTED, REJECTED)
+- Returns ride information and request details
+- Ordered by most recent requests first
+
+---
+
+## Ride Management
+
+### Automatic Ride Completion (Cron Job)
+
+**Schedule:** Every minute
+
+**Logic:**
+- Finds all rides where `departureTime <= current time`
+- Excludes already COMPLETED rides
+- Updates matching rides to COMPLETED status
+
+**Example:**
+```
+Ride created for 2026-01-18T10:00:00Z
+Cron runs at 2026-01-18T10:01:00Z
+departureTime (10:00) <= current time (10:01) ✓
+Ride automatically marked as COMPLETED
+Both parties can now leave feedback
+```
+
+**Benefits:**
+- Automatic ride completion without manual intervention
+- Enables feedback collection immediately after ride time passes
+- Maintains ride status integrity
+
+---
+
+## Feedback System
+
+### Leave Feedback for a Ride
+
+**Endpoint:** `POST /api/v1/feedback` (Protected)
+
+**Request:**
+```json
+{
+  "rideId": "ride-uuid",
+  "toUserId": "recipient-user-uuid",
+  "userRole": "RIDER",
+  "rating": 5,
+  "comment": "Great ride, very professional!"
+}
+```
+
+**Response:**
+```json
+{
+  "success": true,
+  "message": "Feedback submitted successfully",
+  "data": {
+    "id": "feedback-uuid",
+    "rideId": "ride-uuid",
+    "fromUserId": "current-user-uuid",
+    "toUserId": "recipient-user-uuid",
+    "userRole": "RIDER",
+    "rating": 5,
+    "comment": "Great ride, very professional!",
+    "createdAt": "2026-01-18T10:30:00Z"
+  }
+}
+```
+
+**What happens:**
+- Creates feedback/rating for another user
+- Rider rates passenger or vice versa
+- Rating scale: 1-5 stars
+- Optional comment for detailed feedback
+- Helps build trust and accountability in the system
+
+### View My Received Feedback
+
+**Endpoint:** `GET /api/v1/feedback/me` (Protected)
+
+**Response:**
+```json
+{
+  "success": true,
+  "data": [
+    {
+      "id": "feedback-uuid",
+      "rating": 5,
+      "comment": "Great ride!",
+      "userRole": "RIDER",
+      "fromUser": {
+        "id": "user-uuid",
+        "name": "John Doe"
+      },
+      "createdAt": "2026-01-18T10:30:00Z"
+    }
+  ]
+}
+```
+
+### View User Feedback (Public)
+
+**Endpoint:** `GET /api/v1/feedback/user/:userId`
+
+**Response:**
+```json
+{
+  "success": true,
+  "data": {
+    "averageRating": 4.8,
+    "totalFeedback": 12,
+    "feedbacks": [
+      {
+        "rating": 5,
+        "comment": "Excellent service",
+        "userRole": "RIDER"
+      }
+    ]
+  }
+}
+```
+
+**What happens:**
+- Shows public profile rating
+- Calculates average rating from all feedback
+- Helps passengers make informed decisions about riders
+
+### View Ride Feedback
+
+**Endpoint:** `GET /api/v1/feedback/ride/:rideId`
+
+**Response:**
+```json
+{
+  "success": true,
+  "data": [
+    {
+      "rating": 5,
+      "comment": "Perfect timing!",
+      "userRole": "PASSENGER",
+      "fromUser": { ... }
+    }
+  ]
+}
+```
+
+---
+
+## Real-time Events
+
+### Socket.IO Events
+
+The system uses WebSocket for real-time notifications. Clients should listen to these events:
+
+#### Ride Events
+
+| Event | Emitted When | Data |
+|-------|--------------|------|
+| `RIDE_CREATED` | New ride created | Ride ID, Rider info, Location, Departure time |
+| `RIDE_CANCELLED` | Ride cancelled | Ride ID |
+| `RIDE_COMPLETED` | Ride completed | Ride ID |
+
+#### Request Events
+
+| Event | Emitted When | Data |
+|-------|--------------|------|
+| `REQUEST_CREATED` | New join request | Request ID, Passenger info |
+| `REQUEST_ACCEPTED` | Request accepted | Request ID, Ride details |
+| `REQUEST_REJECTED` | Request rejected | Request ID |
+| `REQUEST_CANCELLED` | Request cancelled | Request ID |
+
+#### User Rooms
+
+Users are automatically joined to a personal room on connection:
+```
+Room: user:{userId}
+```
+
+**Event routing:**
+- Ride owner → `user:{riderId}` for request notifications
+- Passenger → `user:{passengerId}` for request status updates
+- Broadcast → All connected users for ride creation/cancellation
+
+**Example WebSocket Connection:**
+```javascript
+const socket = io('ws://localhost:3000');
+
+// Listen for new rides
+socket.on('RIDE_CREATED', (data) => {
+  console.log('New ride:', data);
+});
+
+// Listen for request updates
+socket.on('REQUEST_ACCEPTED', (data) => {
+  console.log('Your request was accepted!', data);
+});
+
+// Listen for ride completion
+socket.on('RIDE_COMPLETED', (rideId) => {
+  console.log('Ride completed:', rideId);
+});
+```
+
+---
+
+## Complete User Journey Examples
+
+### Example 1: Rider Creates and Manages a Ride
+
+```
+1. Rider logs in
+   POST /api/v1/auth/login
+   POST /api/v1/auth/verify-otp → JWT token
+
+2. Rider completes profile with vehicle number
+   PATCH /api/v1/users/me
+
+3. Rider creates a ride
+   POST /api/v1/rides → Ride created, broadcasts RIDE_CREATED event
+
+4. Passengers request to join
+   POST /api/v1/rides/:rideId/request → Rider notified via socket
+
+5. Rider views requests
+   GET /api/v1/rides/:rideId/requests
+
+6. Rider accepts one passenger
+   POST /api/v1/requests/:requestId/accept → Passenger notified, ride becomes MATCHED
+
+7. Cron job runs at departure time
+   Ride auto-completed, RIDE_COMPLETED event broadcast
+
+8. Both parties leave feedback
+   POST /api/v1/feedback (from rider)
+   POST /api/v1/feedback (from passenger)
+
+9. Rider logs out
+   POST /api/v1/auth/logout → Token blacklisted
+```
+
+### Example 2: Passenger Finds and Joins a Ride
+
+```
+1. Passenger logs in
+   POST /api/v1/auth/login
+   POST /api/v1/auth/verify-otp → JWT token
+
+2. Passenger completes profile
+   PATCH /api/v1/users/me
+
+3. Passenger searches for rides
+   GET /api/v1/rides?lat=40.7128&lng=-74.0060
+
+4. Passenger views ride details
+   GET /api/v1/rides/:rideId
+
+5. Passenger requests to join
+   POST /api/v1/rides/:rideId/request → Rider notified via socket
+
+6. Passenger waits for acceptance
+   Listens to socket events for REQUEST_ACCEPTED or REQUEST_REJECTED
+
+7. Ride accepted - notified via socket
+   REQUEST_ACCEPTED event received
+
+8. At departure time, ride auto-completes
+   Receives RIDE_COMPLETED event
+
+9. Passenger leaves feedback
+   POST /api/v1/feedback
+
+10. Passenger logs out
+    POST /api/v1/auth/logout → Token blacklisted
+```
+
+---
+
+## Error Handling
+
+### Common Error Responses
+
+**401 Unauthorized - Token Missing/Invalid**
+```json
+{
+  "success": false,
+  "error": {
+    "code": "UNAUTHORIZED",
+    "message": "No token provided"
+  }
+}
+```
+
+**401 Unauthorized - Token Blacklisted**
+```json
+{
+  "success": false,
+  "error": {
+    "code": "UNAUTHORIZED",
+    "message": "Token has been revoked. Please login again."
+  }
+}
+```
+
+**400 Bad Request - Validation Error**
+```json
+{
+  "success": false,
+  "error": {
+    "code": "VALIDATION_ERROR",
+    "message": "Invalid input data",
+    "details": [...]
+  }
+}
+```
+
+**403 Forbidden - Permission Denied**
+```json
+{
+  "success": false,
+  "error": {
+    "code": "FORBIDDEN",
+    "message": "Only the rider can complete this ride"
+  }
+}
+```
+
+**404 Not Found**
+```json
+{
+  "success": false,
+  "error": {
+    "code": "NOT_FOUND",
+    "message": "Ride not found"
+  }
+}
+```
+
+---
+
+## API Response Structure
+
+All API responses follow a consistent structure:
+
+**Success Response:**
+```json
+{
+  "success": true,
+  "data": { ... },
+  "message": "Operation successful"
+}
+```
+
+**Error Response:**
+```json
+{
+  "success": false,
+  "error": {
+    "code": "ERROR_CODE",
+    "message": "Error description"
+  }
+}
+```
+
+---
+
+## Authentication Notes
+
+- **Token Expiration:** 7 days
+- **OTP Expiration:** 5 minutes
+- **Token Storage:** Database blacklist on logout
+- **Request Format:** `Authorization: Bearer <token>`
+- **Optional Auth:** Some endpoints allow unauthenticated access (guest browsing)
+
+---
+
+## Database Models
+
+### Key Relationships
+
+```
+User
+├── ridesCreated (One-to-Many) → Ride
+├── rideRequests (One-to-Many) → RideRequest
+├── ridesJoined (One-to-Many) → Ride (as passenger)
+├── feedbackGiven (One-to-Many) → Feedback
+└── feedbackReceived (One-to-Many) → Feedback
+
+Ride
+├── rider (Many-to-One) → User
+├── passenger (Many-to-One) → User
+├── requests (One-to-Many) → RideRequest
+└── feedback (One-to-Many) → Feedback
+
+RideRequest
+├── ride (Many-to-One) → Ride
+└── passenger (Many-to-One) → User
+
+Feedback
+├── ride (Many-to-One) → Ride
+├── fromUser (Many-to-One) → User
+└── toUser (Many-to-One) → User
+```
+
+### Enums
+
+**RideStatus:** OPEN, MATCHED, COMPLETED
+
+**RideRequestStatus:** PENDING, ACCEPTED, REJECTED
+
+**UserRole:** RIDER, PASSENGER
+
+---
+
+## Summary
+
+Digni Ride provides a complete ride-sharing ecosystem with:
+
+✅ **OTP-based authentication** with JWT tokens
+✅ **Real-time notifications** via WebSockets
+✅ **Comprehensive ride management** with status tracking
+✅ **Request system** for passenger-ride matching
+✅ **Feedback & ratings** for trust building
+✅ **Geospatial filtering** for local ride discovery
+✅ **Automatic ride completion** via cron jobs
+✅ **Token blacklisting** for secure logout
+
+The platform supports both riders managing their rides and passengers finding and joining rides seamlessly!
