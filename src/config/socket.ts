@@ -26,17 +26,35 @@ export const initializeSocket = (httpServer: HTTPServer): SocketIOServer => {
   });
 
   // Connection event handler
-  io.on('connection', (socket: Socket) => {
+  io.on("connection", (socket: Socket) => {
     logger.info(`New socket connection: ${socket.id}`);
 
+    // Handle user joining their personal room
+    socket.on("user:join", (userId: string) => {
+      socket.join(`user:${userId}`);
+      logger.info(
+        { socketId: socket.id, userId },
+        "User joined their personal room",
+      );
+    });
+
+    // Handle user leaving their personal room
+    socket.on("user:leave", (userId: string) => {
+      socket.leave(`user:${userId}`);
+      logger.info(
+        { socketId: socket.id, userId },
+        "User left their personal room",
+      );
+    });
+
     // Handle disconnection
-    socket.on('disconnect', () => {
+    socket.on("disconnect", () => {
       logger.info(`Socket disconnected: ${socket.id}`);
     });
 
     // Handle errors
-    socket.on('error', (error: Error) => {
-      logger.error({ error, socketId: socket.id }, 'Socket error');
+    socket.on("error", (error: Error) => {
+      logger.error({ error, socketId: socket.id }, "Socket error");
     });
   });
 

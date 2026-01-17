@@ -3,6 +3,12 @@ import { RequestService } from './request.service';
 import { createRequestSchema } from './request.validation';
 import { ResponseHandler } from '../../utils/response';
 import { AuthRequest } from '../../middlewares/auth.middleware';
+import {
+  emitRequestCreated,
+  emitRequestAccepted,
+  emitRequestRejected,
+  emitRequestCancelled,
+} from "../../sockets/socket.events";
 
 const requestService = new RequestService();
 
@@ -19,8 +25,29 @@ export class RequestController {
       }
       const { rideId } = req.params as { rideId: string };
       const data = createRequestSchema.parse(req.body);
-      const request = await requestService.createRequest(rideId, req.userId, data);
-      ResponseHandler.created(res, request, 'Request sent successfully');
+      const request = await requestService.createRequest(
+        rideId,
+        req.userId,
+        data,
+      );
+
+      // Emit socket event to notify the ride owner about the new request
+      const rideData = request.ride as any;
+      emitRequestCreated(
+        {
+          id: request.id,
+          rideId: request.rideId,
+          passenger: {
+            id: request.passenger.id,
+            firstName: request.passenger.name?.split(" ")[0] || "Unknown",
+            lastName: request.passenger.name?.split(" ")[1] || "",
+          },
+          status: request.status,
+        },
+        rideData.riderId,
+      );
+
+      ResponseHandler.created(res, request, "Request sent successfully");
     } catch (error) {
       next(error);
     }
@@ -56,7 +83,27 @@ export class RequestController {
       }
       const { requestId } = req.params as { requestId: string };
       const result = await requestService.acceptRequest(requestId, req.userId);
-      ResponseHandler.success(res, result, 'Request accepted successfully');
+
+      // Emit socket event to notify the passenger
+      const resultData = result as any;
+      emitRequestAccepted(
+        {
+          id: resultData.request.id,
+          rideId: resultData.request.rideId,
+          status: resultData.request.status,
+        },
+        resultData.request.passengerId,
+        {
+          id: resultData.ride.id,
+          rideNumber: resultData.ride.id.substring(0, 8).toUpperCase(),
+          startLocation: String(resultData.ride.startLocation),
+          endLocation: String(resultData.ride.endLocation),
+          departureTime: resultData.ride.departureTime.toISOString(),
+          fare: 0,
+        },
+      );
+
+      ResponseHandler.success(res, result, "Request accepted successfully");
     } catch (error) {
       next(error);
     }
@@ -74,7 +121,18 @@ export class RequestController {
       }
       const { requestId } = req.params as { requestId: string };
       const request = await requestService.rejectRequest(requestId, req.userId);
-      ResponseHandler.success(res, request, 'Request rejected');
+
+      // Emit socket event to notify the passenger
+      emitRequestRejected(
+        {
+          id: request.id,
+          rideId: request.rideId,
+          status: request.status,
+        },
+        request.passengerId,
+      );
+
+      ResponseHandler.success(res, request, "Request rejected");
     } catch (error) {
       next(error);
     }
@@ -109,6 +167,15 @@ export class RequestController {
       }
       const { requestId } = req.params as { requestId: string };
       const result = await requestService.cancelRequest(requestId, req.userId);
+
+      // Emit socket event to notify the ride owner
+      const resultData = result as any;
+      emitRequestCancelled(
+        resultData.id,
+        resultData.rideId,
+        resultData.ride.riderId,
+      );
+
       ResponseHandler.success(res, result);
     } catch (error) {
       next(error);
