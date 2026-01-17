@@ -370,6 +370,7 @@ export class RideService {
         const ride = request.ride;
         return {
           ...ride,
+          requestStatus: request.status,
           requestCount: ride._count.requests,
           _count: undefined, // Remove _count from response
         };
