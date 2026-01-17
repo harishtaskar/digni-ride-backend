@@ -1,24 +1,40 @@
 import { prisma } from '../../config/prisma';
 import { logger } from '../../utils/logger';
 import { generateToken } from '../../utils/jwt';
-import { LoginInput, RegisterInput, VerifyOtpInput } from "./auth.validation";
+import { LoginInput, VerifyOtpInput } from "./auth.validation";
 import { AppError } from '../../middlewares/error.middleware';
 
 export class AuthService {
   /**
-   * Send OTP to user's phone for login
-   * Requires user to exist
+   * Send OTP to user's phone for login/registration
+   * Creates user if not exists
    */
   async login(data: LoginInput) {
     logger.info({ phone: data.phone }, "Login request received");
 
     // Check if user exists
-    const user = await prisma.user.findUnique({
+    let user = await prisma.user.findUnique({
       where: { phone: data.phone },
     });
 
-    if (!user) {
-      throw new AppError(400, "User not registered. Please register first.");
+    let isRegistered = false;
+
+    if (user) {
+      // User exists, check if profile is complete
+      isRegistered = !!(user.name && user.city);
+    } else {
+      // Create new user with just phone number
+      user = await prisma.user.create({
+        data: {
+          phone: data.phone,
+          name: "",
+          city: "",
+        },
+      });
+      logger.info(
+        { userId: user.id },
+        "New user created (pending registration)",
+      );
     }
 
     // Generate and store OTP
@@ -31,46 +47,7 @@ export class AuthService {
       message: "OTP sent successfully",
       userId: user.id,
       otp,
-      isRegistered: true,
-    };
-  }
-
-  /**
-   * Register new user and send OTP
-   */
-  async register(data: RegisterInput) {
-    logger.info({ phone: data.phone }, "Register request received");
-
-    // Check if user already exists
-    const existingUser = await prisma.user.findUnique({
-      where: { phone: data.phone },
-    });
-
-    if (existingUser) {
-      throw new AppError(400, "User already registered. Please login.");
-    }
-
-    // Create user
-    const user = await prisma.user.create({
-      data: {
-        phone: data.phone,
-        name: data.name,
-        city: data.city,
-      },
-    });
-    logger.info({ userId: user.id }, "New user created");
-
-    // Generate and store OTP
-    const { otp, expiresAt } = this.generateOtp();
-    await this.storeOtp(data.phone, otp, expiresAt);
-
-    logger.info({ phone: data.phone, otp }, "OTP generated (development only)");
-
-    return {
-      message: "OTP sent successfully",
-      userId: user.id,
-      otp,
-      isRegistered: true,
+      isRegistered,
     };
   }
 
@@ -152,6 +129,7 @@ export class AuthService {
     return {
       token,
       user,
+      isRegistered: !!(user.name && user.city),
     };
   }
 

@@ -12,9 +12,9 @@ datasource db {
 
 model User {
   id            String   @id @default(uuid())
-  name          String
+  name          String?
   phone         String   @unique
-  city          String
+  city          String?
   vehicleNumber String?
 
   createdAt     DateTime @default(now())
