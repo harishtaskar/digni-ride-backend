@@ -265,10 +265,20 @@ export class RideService {
             name: true,
           },
         },
+        _count: {
+          select: {
+            requests: true,
+          },
+        },
       },
-      orderBy: { departureTime: 'desc' },
+      orderBy: { departureTime: "desc" },
     });
 
-    return rides;
+    // Map the response to include requestCount field
+    return rides.map((ride) => ({
+      ...ride,
+      requestCount: ride._count.requests,
+      _count: undefined, // Remove _count from response
+    }));
   }
 }
